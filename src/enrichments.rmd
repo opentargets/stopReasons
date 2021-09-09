@@ -21,7 +21,6 @@ sc <- spark_connect("local[*]", config = config)
 ## Data prep
 
 ```{r, dataConfig}
-stop_reasons_predictions_path <- "gs://ot-team/dochoa/predictions_stop.tsv"
 gs_path <- "gs://open-targets-data-releases/"
 data_release <- "21.06"
 all_evidence_path <- paste(
@@ -43,7 +42,7 @@ disease_path <- paste(
 ## Olesya's predictions for stop reason class
 stop_predictions <- spark_read_csv(
     sc,
-    path = stop_reasons_predictions_path,
+    path = "../data/predictions_stop.csv",
     delimiter = "\t",
     header = TRUE,
     memory = FALSE

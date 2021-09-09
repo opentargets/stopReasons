@@ -1,0 +1,36 @@
+_administr,85,Suspicious
+another study,140,Neutral
+study data,64,Negative
+business,192,Suspicious
+practice_change,42,Neutral
+design_change,55,Neutral
+enroll_completed,47,Misuse
+funding,228,Suspicious
+futility,50,Negative
+bad_design,24,Neutral
+efficacy,147,Negative
+bad_enroll,960,Neutral
+key_staff,110,Neutral
+lost_interest,19,Suspicious
+none,149,Misuse
+regulatory,80,Neutral
+resources,73,Neutral
+safety,132,Safety
+see_more,112,Neutral
+sponsor,81,Suspicious
+completed,40,Misuse
+success,7,Positive
+interim,24,Neutral
+logistics,59,Neutral
+endpoint_unmet,20,Negative
+covid-19,447,Neutral
+ethical,8,Neutral
+insufficient_data,13,Neutral
+irreproducible,1,Suspicious
+endpoint_met,15,Neutral
+non_compliance,15,Neutral
+not_a_clinical_t,4,Misuse
+other,120,Neutral
+pharmacokinetics,2,Negative
+side_effects,3,Safety
+study_moved,5,Neutral

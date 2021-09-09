@@ -14,9 +14,13 @@ library("cowplot")
 library("ggdendro")
 ```
 
-```{r, child=c('sentenceSimilarities.rmd', 'enrichments.Rmd')}
+```{r, child=c('sentenceSimilarities.rmd')}
 ```
 
+```{r, child=c('enrichments.rmd')}
+```
+
+'enrichments.Rmd'
 
 ## Specific questions about enrollment
 ## Safety-relevant targets

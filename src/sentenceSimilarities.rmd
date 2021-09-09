@@ -3,7 +3,7 @@
 
 ```{r, simDataPrep}
 # reading vectors
-dd <- read.table(file = "./wvectors.csv",
+dd <- read.table(file = "../data/wvectors.csv",
                  sep = ",",
                  header = TRUE,
                  row.names = 1)
@@ -20,7 +20,7 @@ dend <- as.dendrogram(hc)
 dend_data <- dendro_data(dend, type = "rectangle")
 
 # Class frequencies
-freq <- read_csv(file = "./frequencies.csv",
+freq <- read_csv(file = "../data/frequencies.csv",
                  col_names = FALSE) %>%
     setNames(c("class", "freq", "category")) %>%
     mutate(class = str_replace(class, "^_", "")) %>%
