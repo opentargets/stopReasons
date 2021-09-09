@@ -1,15 +1,3 @@
----
-title: "Study stop reasons"
-output: html_document
----
-
-# Clinical trial stop reason interpretation
-
-```{r, Rsetup, include = FALSE}
-library(tidyverse)
-library(sparklyr)
-library(sparklyr.nested)
-```
 
 ```{r, SparkConnection, include = FALSE}
 options("sparklyr.verbose" = TRUE)
@@ -255,7 +243,3 @@ allTests %>%
     theme_light()
 ```
 
-
-
-## Specific questions about enrollment
-## Safety-relevant targets
