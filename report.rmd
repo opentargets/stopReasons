@@ -227,7 +227,7 @@ aggregations <- longdf %>%
 
 ```
 
-```{r, runFisherTests, cache = TRUE}
+```{r, runFisherTests}
 aggregations_r <- aggregations %>%
     collect()
 
