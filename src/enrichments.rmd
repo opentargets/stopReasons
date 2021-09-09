@@ -229,13 +229,16 @@ all_tests <- bind_cols(aggregations_r,
 
 ```{r, oddsPlot}
 
-allTests %>%
-    filter(comparison == "genetic") %>%
+all_tests %>%
+    filter(comparison %in% c("genetic", "Phase IV", "eva")) %>%
+    filter(a != 0) %>%
     ggplot(aes(x = prediction, y = estimate)) +
     geom_hline(aes(yintercept = 1),
         size = .25,
         linetype = "dashed"
     ) +
+    geom_errorbar(aes(ymin = conf.low, ymax = conf.high),
+    width = 0) +
     geom_point() +
     scale_y_log10() +
     coord_flip() +
