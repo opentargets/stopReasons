@@ -1,5 +1,4 @@
-## Sentence similarities
-
+## About the training set
 
 ```{r, simDataPrep}
 # reading vectors

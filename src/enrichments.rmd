@@ -18,7 +18,6 @@ sc <- spark_connect("local[*]", config = config)
 
 ```
 
-## Data prep
 
 ```{r, dataConfig}
 precitions_path <- "gs://ot-team/dochoa/predictions_stop.tsv"
@@ -37,7 +36,7 @@ disease_path <- paste(
 
 ```
 
-**Stop reasons predictions from Olesya**
+## About the prediction results
 
 ```{r, dataStopReasons}
 ## Olesya's predictions for stop reason class
@@ -129,24 +128,41 @@ stop_to_plot %>%
     )
 ```
 
-```{r, negativeByPhase}
-total_by_phase <- clinical %>%
-    select(
-        nctid, studyStartDate, prediction,
-        clinicalStatus, clinicalPhase
-    ) %>%
-    sdf_distinct() %>%
-    collect() %>%
-    filter(!is.na(prediction)) %>%
-    group_by(clinicalPhase) %>%
-    summarise(trialByPhase = n())
+Selected prediction classes as they progress in clinical trials.
+
+```{r, predictionByPhase}
 
 stopped_trials %>%
-    filter(prediction == "Negative") %>%
-    group_by(clinicalPhase) %>%
-    summarise(negativeCount = n()) %>%
-    inner_join(total_by_phase, by = "clinicalPhase") %>%
-    mutate(ratio = negativeCount / trialByPhase)
+    group_by(clinicalPhase, prediction) %>%
+    summarise(count = n(), .groups = "drop") %>%
+    inner_join(
+        stopped_trials %>%
+            group_by(clinicalPhase) %>%
+            summarise(stoppedByPhase = n()),
+        by = "clinicalPhase"
+    ) %>%
+    mutate(stopRatio = (count / stoppedByPhase)) %>%
+    filter(prediction %in% c("Safety_Sideeffects",
+    "Negative", "Study_Staff_Moved")) %>%
+    ggplot(aes(x = clinicalPhase, y = stopRatio, fill = fct_rev(prediction))) +
+        geom_area(alpha = 0.7, size = .25, color = "black") +
+        scale_y_continuous(
+            name = "Stopped studies (%)",
+            labels = scales::percent,
+            expand = c(0, 0)
+        ) +
+        scale_x_continuous(
+            name = "Clinical Phase",
+            expand = c(0, 0)
+        ) +
+        scale_fill_viridis_d(name = "Stop reason") +
+    theme_bw() +
+    theme(
+        legend.position = c(1, 1),
+        legend.justification = c(1, 1),
+        legend.background = element_blank(),
+        legend.margin = margin(r = 10, t = 10, unit = "pt")
+    )
 
 ```
 
@@ -312,7 +328,8 @@ all_tests <- bind_cols(aggregations_r,
 ```{r, oddsPlot}
 
 all_tests %>%
-    filter(comparison %in% c("genetic", "Phase IV", "eva")) %>%
+    # filter(comparison %in% c("genetic", "eva", "ot_genetics_portal")) %>%
+    filter(prediction == "Negative") %>%
     filter(a != 0) %>%
     ggplot(aes(x = prediction, y = estimate)) +
     geom_hline(aes(yintercept = 1),
