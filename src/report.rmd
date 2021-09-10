@@ -9,8 +9,6 @@ output: html_document
 library("tidyverse")
 library("sparklyr")
 library("sparklyr.nested")
-library("ggsci")
-library("cowplot")
 library("ggdendro")
 ```
 
