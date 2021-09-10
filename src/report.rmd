@@ -1,6 +1,10 @@
 ---
 title: "Study stop reasons"
-output: html_document
+date: "`r format(Sys.time(), '%d %B, %Y')`"
+output:
+  github_document:
+    toc: true
+    toc_depth: 2 
 ---
 
 # Clinical trial stop reason interpretation
