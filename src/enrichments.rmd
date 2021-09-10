@@ -211,19 +211,19 @@ comparisons_td <- sdf_bind_rows(
     clinical %>%
     filter(clinicalPhase == 4) %>%
     select(targetId, diseaseId) %>%
-    distinct() %>%
+    sdf_distinct() %>%
     mutate(comparison = "Phase IV"),
     ## T-D in Phase III+
     clinical %>%
     filter(clinicalPhase >= 3) %>%
     select(targetId, diseaseId) %>%
-    distinct() %>%
+    sdf_distinct() %>%
     mutate(comparison = "Phase III+"),
     ## T-D in Phase II+
     clinical %>%
         filter(clinicalPhase >= 2) %>%
         select(targetId, diseaseId) %>%
-        distinct() %>%
+        sdf_distinct() %>%
         mutate(comparison = "Phase II+")
 ) %>%
     mutate(comparisonBoolean = TRUE)
@@ -233,14 +233,14 @@ longdf <- clinical %>%
     # Defining universe and generate fake ID (target-disease-trial)
     filter(!is.na(nctid)) %>%
     select(targetId, diseaseId, "nctid") %>%
-    distinct() %>%
+    sdf_distinct() %>%
     sdf_with_sequential_id("id") %>%
     # Adding tests for the comparisons
     # 1. Add all potential evidence classes
     full_join(
         comparisons_td %>%
             select("comparison") %>%
-            distinct(),
+            sdf_distinct(),
         by = character()
     ) %>%
     # 2. Add all available evidence classes
@@ -253,7 +253,7 @@ longdf <- clinical %>%
     full_join(
         clinical %>%
             select(prediction) %>%
-            distinct() %>%
+            sdf_distinct() %>%
             na.omit(),
         by = character()
     ) %>%
@@ -262,7 +262,7 @@ longdf <- clinical %>%
         clinical %>%
             filter(!is.na(nctid) & !is.na(prediction)) %>%
             select("nctid", "prediction") %>%
-            distinct() %>%
+            sdf_distinct() %>%
             mutate(predictionBoolean = TRUE),
         by = c("nctid", "prediction")
     ) %>%
