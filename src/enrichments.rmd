@@ -67,6 +67,67 @@ clinical <- spark_read_parquet(sc, all_evidence_path, memory = FALSE) %>%
     select(-url)
 ```
 
+Clinical trial stop reason by year
+
+```{r, plotPredictionsByTime}
+
+stopped_trials <- clinical %>%
+    filter(!is.na(prediction)) %>%
+    select(
+        nctid, studyStartDate, prediction,
+        clinicalStatus, clinicalPhase
+    ) %>%
+    sdf_distinct() %>%
+    collect()
+
+
+stop_to_plot <- stopped_trials %>%
+    filter(as.Date(studyStartDate) <= today()) %>%
+    mutate(year = year(as.Date(studyStartDate))) %>%
+    group_by(year, prediction) %>%
+    summarise(count = n(), .groups = "drop") %>%
+    complete(year, prediction) %>%
+    mutate(
+        interval = cut(
+            count,
+            breaks = c(1, 5, 10, 25, 100, 150, Inf),
+            include.lowest = TRUE,
+            right = FALSE
+        )
+    ) %>%
+    mutate(interval = fct_recode(interval,
+        "1-4" = "[1,5)",
+        "5-9" = "[5,10)",
+        "10-24" = "[10,25)",
+        "25-99" = "[25,100)",
+        "100-149" = "[100,150)",
+        "150+" = "[150,Inf]"
+    ))
+    
+stop_to_plot %>%
+    ggplot(aes(
+        x = year,
+        y = fct_reorder(prediction, count, sum, na.rm = TRUE)
+    )) +
+    geom_tile(aes(fill = interval), color = "white", size = .5) +
+    scale_x_continuous(expand = c(0, 0)) +
+    scale_fill_manual(
+        name = "Stopped trials",
+        na.value = "lightgrey",
+        values = viridisLite::viridis(length(levels(stop_to_plot$interval))),
+        breaks = levels(stop_to_plot$interval)
+    ) +
+    # scale_fill_viridis_b(na.value = "grey90") +
+    coord_fixed() +
+    theme_light() +
+    theme(
+        axis.ticks = element_blank(),
+        axis.line = element_blank(),
+        panel.border = element_blank(),
+        axis.title = element_blank()
+    )
+```
+
 **Genetic evidence data**. Filtering EVA to include only a subset of meaningful `clinicalSignificances`. The rest of the genetic evidence remain unfiltered. Scores available.
 
 ```{r, dataGeneticEvd}
