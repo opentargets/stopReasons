@@ -21,6 +21,7 @@ sc <- spark_connect("local[*]", config = config)
 ## Data prep
 
 ```{r, dataConfig}
+precitions_path <- "gs://ot-team/dochoa/predictions_stop.tsv"
 gs_path <- "gs://open-targets-data-releases/"
 data_release <- "21.06"
 all_evidence_path <- paste(
@@ -42,7 +43,7 @@ disease_path <- paste(
 ## Olesya's predictions for stop reason class
 stop_predictions <- spark_read_csv(
     sc,
-    path = "../data/predictions_stop.csv",
+    path = precitions_path,
     delimiter = "\t",
     header = TRUE,
     memory = FALSE
@@ -103,7 +104,7 @@ stop_to_plot <- stopped_trials %>%
         "100-149" = "[100,150)",
         "150+" = "[150,Inf]"
     ))
-    
+
 stop_to_plot %>%
     ggplot(aes(
         x = year,
@@ -126,6 +127,27 @@ stop_to_plot %>%
         panel.border = element_blank(),
         axis.title = element_blank()
     )
+```
+
+```{r, negativeByPhase}
+total_by_phase <- clinical %>%
+    select(
+        nctid, studyStartDate, prediction,
+        clinicalStatus, clinicalPhase
+    ) %>%
+    sdf_distinct() %>%
+    collect() %>%
+    filter(!is.na(prediction)) %>%
+    group_by(clinicalPhase) %>%
+    summarise(trialByPhase = n())
+
+stopped_trials %>%
+    filter(prediction == "Negative") %>%
+    group_by(clinicalPhase) %>%
+    summarise(negativeCount = n()) %>%
+    inner_join(total_by_phase, by = "clinicalPhase") %>%
+    mutate(ratio = negativeCount / trialByPhase)
+
 ```
 
 **Genetic evidence data**. Filtering EVA to include only a subset of meaningful `clinicalSignificances`. The rest of the genetic evidence remain unfiltered. Scores available.

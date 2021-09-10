@@ -10,6 +10,8 @@ library("tidyverse")
 library("sparklyr")
 library("sparklyr.nested")
 library("ggdendro")
+library("ggsci")
+library("cowplot")
 ```
 
 ```{r, child=c('sentenceSimilarities.rmd')}
@@ -17,8 +19,6 @@ library("ggdendro")
 
 ```{r, child=c('enrichments.rmd')}
 ```
-
-'enrichments.Rmd'
 
 ## Specific questions about enrollment
 ## Safety-relevant targets
