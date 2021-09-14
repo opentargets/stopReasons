@@ -1,7 +1,7 @@
 
 ```{r, SparkConnection, include = FALSE}
 options("sparklyr.verbose" = TRUE)
-Sys.setenv("SPARK_MEM" = "80G")
+# Sys.setenv("SPARK_MEM" = "80G")
 config <- spark_config()
 
 # Allowing to GCP datasets access
@@ -9,12 +9,13 @@ config$spark.hadoop.fs.gs.requester.pays.mode <- "AUTO" # nolint
 config$spark.hadoop.fs.gs.requester.pays.project.id <- "open-targets-eu-dev" # nolint
 
 # Performance adjustments for n1 high-mem 16 cores
-config$`sparklyr.shell.driver-memory` <- "5G" # nolint
-config$`sparklyr.shell.executor-memory` <- "5G" # nolint
-config$`spark.yarn.executor.memoryOverhead` <- "512" # nolint
+# config$`sparklyr.shell.driver-memory` <- "30G" # nolint
+# config$`sparklyr.shell.executor-memory` <- "5G" # nolint
+# config$`spark.yarn.executor.memoryOverhead` <- "512" # nolint
 
 # spark connect
-sc <- spark_connect("local[*]", config = config)
+# sc <- spark_connect("local[*]", config = config)
+sc <- spark_connect(master = "yarn", config = config)
 
 ```
 
@@ -166,6 +167,7 @@ stopped_trials %>%
 
 ```
 
+
 **Genetic evidence data**. Filtering EVA to include only a subset of meaningful `clinicalSignificances`. The rest of the genetic evidence remain unfiltered. Scores available.
 
 ```{r, dataGeneticEvd}
@@ -179,21 +181,22 @@ clinvar_valids <- c(
     "protective",
     "drug response"
 )
-genetic_evd <- spark_read_parquet(sc, all_evidence_path, memory = FALSE) %>%
-    filter(datatypeId == "genetic_association") %>%
+all_evd <- spark_read_parquet(sc, all_evidence_path, memory = FALSE) %>%
+    # filter(datatypeId == "genetic_association") %>%
     ## only subset of clinvar evidence
     sdf_explode("clinicalSignificances", keep_all = TRUE) %>%
+    ## to improve performance
     filter((clinicalSignificances %in% clinvar_valids) |
     is.na(clinicalSignificances)) %>%
     select(
-        "targetId", "diseaseId", "datasourceId", "score"
+        "targetId", "diseaseId", "datasourceId", "datatypeId", "score"
     )
 ```
 
-**Re-computed genetic associations**. Associations recomputed after removing non-relevant genetic data (from EVA mostly). Ontology expansion performed. 
+**Re-computed associations**. Associations recomputed after removing non-relevant genetic data (bening mutations from EVA). Ontology expansion performed. 
 
 ```{r, dataGenetic_ass}
-## Genetic Associations recomputed:
+## Associations recomputed:
 ## applying ontology expansion and showing max score
 disease_ancestors <- spark_read_parquet(sc, disease_path, memory = FALSE) %>%
     select("diseaseId" = "id", "propagatedDiseaseId" = "ancestors") %>%
@@ -202,9 +205,11 @@ disease_ancestors <- spark_read_parquet(sc, disease_path, memory = FALSE) %>%
         spark_read_parquet(sc, disease_path) %>%
             select("diseaseId" = "id", "propagatedDiseaseId" = "id")
     )
-genetic_ass <- genetic_evd %>%
+all_ass <- all_evd %>%
     left_join(disease_ancestors, by = "diseaseId") %>%
-    group_by(targetId, diseaseId, datasourceId) %>%
+    select(-diseaseId) %>%
+    rename(diseaseId = propagatedDiseaseId) %>%
+    group_by(targetId, diseaseId, datasourceId, datatypeId) %>%
     summarise(maxScore = max(score, na.rm = TRUE)) %>%
     ungroup()
     
@@ -213,38 +218,79 @@ genetic_ass <- genetic_evd %>%
 
 ## ???
 
+The search universe is defined as every target-disease-trial with a stop reason.
+
 ```{r, dataGenetic}
 
+# comparison focuses on other t-d information supporting a trial
 comparisons_td <- sdf_bind_rows(
-    ## all genetics
-    genetic_ass %>%
-    select("targetId", "diseaseId") %>%
-    mutate(comparison = "genetic"),
-    ## genetics by datasource
-    genetic_ass %>%
-    select("targetId", "diseaseId", "comparison" = "datasourceId"),
-    ## T-D in Phase IV+
-    clinical %>%
-    filter(clinicalPhase == 4) %>%
-    select(targetId, diseaseId) %>%
-    sdf_distinct() %>%
-    mutate(comparison = "Phase IV"),
-    ## T-D in Phase III+
-    clinical %>%
-    filter(clinicalPhase >= 3) %>%
-    select(targetId, diseaseId) %>%
-    sdf_distinct() %>%
-    mutate(comparison = "Phase III+"),
-    ## T-D in Phase II+
-    clinical %>%
-        filter(clinicalPhase >= 2) %>%
-        select(targetId, diseaseId) %>%
+    ## by datatype
+    all_ass %>%
+        select("targetId", "diseaseId", "comparison" = "datatypeId") %>%
         sdf_distinct() %>%
-        mutate(comparison = "Phase II+")
+        mutate(comparisonType = "byDatatype"),
+    ## by datasource
+    all_ass %>%
+        select("targetId", "diseaseId", "comparison" = "datasourceId") %>%
+        sdf_distinct() %>%
+        mutate(comparisonType = "byDatasource")
 ) %>%
     mutate(comparisonBoolean = TRUE)
 
-# Data frame with all the
+# "predictions" focuses on different trial information
+predictions <- sdf_bind_rows(
+    # Predicted classses
+    clinical %>%
+        filter(!is.na(nctid) & !is.na(prediction)) %>%
+        select(nctid, prediction) %>%
+        sdf_distinct() %>%
+        mutate(predictionType = "class"),
+    # All stopped
+    clinical %>%
+        filter(clinicalStatus %in% c("Suspended", "Terminated",
+        "Withdrawn")) %>%
+        select(nctid) %>%
+        sdf_distinct() %>%
+        mutate(prediction = "All stopped") %>%
+        mutate(predictionType = "stopped"),
+    clinical %>%
+        filter(!is.na(nctid) & !is.na(prediction)) %>%
+        select(nctid, prediction) %>%
+        mutate(prediction = ifelse(
+            !(prediction %in% c(
+                "Negative", "Safety_Sideeffects", "Success",
+                "Business_Administrative", "Invalid_Reason"
+            )),
+            "Neutral",
+            prediction
+        )) %>%
+        sdf_distinct() %>%
+        mutate(predictionType = "metaclass"),
+    ## T-D in Phase IV+
+    clinical %>%
+    filter(clinicalPhase == 4) %>%
+    select(nctid) %>%
+    sdf_distinct() %>%
+    mutate(predictionType = "clinical") %>%
+    mutate(prediction = "Phase IV"),
+    ## T-D in Phase III+
+    clinical %>%
+    filter(clinicalPhase >= 3) %>%
+    select(nctid) %>%
+    sdf_distinct() %>%
+    mutate(predictionType = "clinical") %>%
+    mutate(prediction = "Phase III+"),
+    ## T-D in Phase II+
+    clinical %>%
+    filter(clinicalPhase >= 2) %>%
+    select(nctid) %>%
+    sdf_distinct() %>%
+    mutate(predictionType = "clinical") %>%
+    mutate(prediction = "Phase II+")
+)
+
+# Data frame with all the combinations exploded
+# WARNING: Big dataset
 longdf <- clinical %>%
     # Defining universe and generate fake ID (target-disease-trial)
     filter(!is.na(nctid)) %>%
@@ -255,57 +301,55 @@ longdf <- clinical %>%
     # 1. Add all potential evidence classes
     full_join(
         comparisons_td %>%
-            select("comparison") %>%
+            select(comparison, comparisonType) %>%
             sdf_distinct(),
         by = character()
     ) %>%
     # 2. Add all available evidence classes
     left_join(comparisons_td,
-        by = c("targetId", "diseaseId", "comparison")
+        by = c("targetId", "diseaseId", "comparison", "comparisonType")
     ) %>%
     na.replace(comparisonBoolean = FALSE) %>%
     # Adding tests for the predictions
     # 1. Add all prediction classes
     full_join(
-        clinical %>%
-            select(prediction) %>%
-            sdf_distinct() %>%
-            na.omit(),
+        predictions %>%
+            select(prediction, predictionType) %>%
+            sdf_distinct(),
         by = character()
     ) %>%
     # 2. Add all prediction results
     left_join(
-        clinical %>%
-            filter(!is.na(nctid) & !is.na(prediction)) %>%
-            select("nctid", "prediction") %>%
-            sdf_distinct() %>%
+        predictions %>%
             mutate(predictionBoolean = TRUE),
-        by = c("nctid", "prediction")
+        by = c("nctid", "prediction", "predictionType")
     ) %>%
     na.replace(predictionBoolean = FALSE)
-
 
 ## Aggregations
 trials_by_prediction <- longdf %>%
     filter(predictionBoolean == TRUE) %>%
-    group_by(prediction) %>%
+    group_by(prediction, predictionType) %>%
     summarise(trialsByPrediction = n_distinct(id))
 
 trials_by_comparison <- longdf %>%
     filter(comparisonBoolean == TRUE) %>%
-    group_by(comparison) %>%
+    group_by(comparison, comparisonType) %>%
     summarise(trialsByComparison = n_distinct(id))
 
+
+
 aggregations <- longdf %>%
-    group_by(comparison, prediction) %>%
+    group_by(comparison, comparisonType, prediction, predictionType) %>%
     summarise(
-        a = sum(as.numeric(comparisonBoolean & predictionBoolean),
-        na.rm = TRUE),
+        a = sum(
+            as.numeric(comparisonBoolean & predictionBoolean),
+            na.rm = TRUE),
         n = n_distinct(id)
     ) %>%
     ungroup() %>%
-    left_join(trials_by_prediction, by = "prediction") %>%
-    left_join(trials_by_comparison, by = "comparison") %>%
+    left_join(trials_by_prediction, by = c("prediction", "predictionType")) %>%
+    left_join(trials_by_comparison, by = c("comparison", "comparisonType")) %>%
     mutate(b = trialsByPrediction - a) %>%
     mutate(c = trialsByComparison - a) %>%
     mutate(d = n - b - c + a) %>%
@@ -328,8 +372,8 @@ all_tests <- bind_cols(aggregations_r,
 ```{r, oddsPlot}
 
 all_tests %>%
-    # filter(comparison %in% c("genetic", "eva", "ot_genetics_portal")) %>%
-    filter(prediction == "Negative") %>%
+    filter(predictionType %in% c("metaclass", "stopped", "clinical")) %>%
+    filter(comparisonType == "byDatatype") %>%
     filter(a != 0) %>%
     ggplot(aes(x = prediction, y = estimate)) +
     geom_hline(aes(yintercept = 1),
@@ -339,9 +383,10 @@ all_tests %>%
     geom_errorbar(aes(ymin = conf.low, ymax = conf.high),
     width = 0) +
     geom_point() +
-    scale_y_log10() +
-    coord_flip() +
-    facet_grid(comparison~.) +
-    theme_light()
+        scale_y_log10() +
+        coord_flip() +
+        facet_grid(comparison ~ .) +
+        theme_light()
+    
 ```
 

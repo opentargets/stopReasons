@@ -13,6 +13,7 @@ output:
 library("tidyverse")
 library("sparklyr")
 library("sparklyr.nested")
+library("lubridate")
 library("ggdendro")
 library("ggsci")
 library("cowplot")
