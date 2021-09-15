@@ -1,20 +1,13 @@
 
 ```{r, SparkConnection, include = FALSE}
 options("sparklyr.verbose" = TRUE)
-# Sys.setenv("SPARK_MEM" = "80G")
 config <- spark_config()
 
 # Allowing to GCP datasets access
 config$spark.hadoop.fs.gs.requester.pays.mode <- "AUTO" # nolint
 config$spark.hadoop.fs.gs.requester.pays.project.id <- "open-targets-eu-dev" # nolint
 
-# Performance adjustments for n1 high-mem 16 cores
-# config$`sparklyr.shell.driver-memory` <- "30G" # nolint
-# config$`sparklyr.shell.executor-memory` <- "5G" # nolint
-# config$`spark.yarn.executor.memoryOverhead` <- "512" # nolint
-
 # spark connect
-# sc <- spark_connect("local[*]", config = config)
 sc <- spark_connect(master = "yarn", config = config)
 
 ```
@@ -293,10 +286,10 @@ predictions <- sdf_bind_rows(
 # WARNING: Big dataset
 longdf <- clinical %>%
     # Defining universe and generate fake ID (target-disease-trial)
-    filter(!is.na(nctid)) %>%
+    # filter(!is.na(nctid)) %>%
     select(targetId, diseaseId, "nctid") %>%
     sdf_distinct() %>%
-    sdf_with_sequential_id("id") %>%
+    sdf_with_unique_id("id") %>%
     # Adding tests for the comparisons
     # 1. Add all potential evidence classes
     full_join(
@@ -305,11 +298,6 @@ longdf <- clinical %>%
             sdf_distinct(),
         by = character()
     ) %>%
-    # 2. Add all available evidence classes
-    left_join(comparisons_td,
-        by = c("targetId", "diseaseId", "comparison", "comparisonType")
-    ) %>%
-    na.replace(comparisonBoolean = FALSE) %>%
     # Adding tests for the predictions
     # 1. Add all prediction classes
     full_join(
@@ -318,6 +306,11 @@ longdf <- clinical %>%
             sdf_distinct(),
         by = character()
     ) %>%
+    # 2. Add all available evidence classes
+    left_join(comparisons_td,
+        by = c("targetId", "diseaseId", "comparison", "comparisonType")
+    ) %>%
+    na.replace(comparisonBoolean = FALSE) %>%
     # 2. Add all prediction results
     left_join(
         predictions %>%
@@ -342,8 +335,8 @@ trials_by_comparison <- longdf %>%
 aggregations <- longdf %>%
     group_by(comparison, comparisonType, prediction, predictionType) %>%
     summarise(
-        a = sum(
-            as.numeric(comparisonBoolean & predictionBoolean),
+        a = n_distinct(
+            ifelse(comparisonBoolean & predictionBoolean, id, NA),
             na.rm = TRUE),
         n = n_distinct(id)
     ) %>%
@@ -361,7 +354,8 @@ aggregations <- longdf %>%
 aggregations_r <- aggregations %>%
     collect()
 
-all_tests <- bind_cols(aggregations_r,
+all_tests <- bind_cols(
+    aggregations_r,
     aggregations_r %>%
         rowwise() %>%
         do(broom::tidy(fisher.test(matrix(c(.$a, .$b, .$c, .$d), nrow = 2))))
@@ -374,6 +368,7 @@ all_tests <- bind_cols(aggregations_r,
 all_tests %>%
     filter(predictionType %in% c("metaclass", "stopped", "clinical")) %>%
     filter(comparisonType == "byDatatype") %>%
+    filter(comparison != "known_drug") %>%
     filter(a != 0) %>%
     ggplot(aes(x = prediction, y = estimate)) +
     geom_hline(aes(yintercept = 1),
@@ -386,7 +381,7 @@ all_tests %>%
         scale_y_log10() +
         coord_flip() +
         facet_grid(comparison ~ .) +
-        theme_light()
-    
+        theme_light() +
+    theme(axis.title.y = element_blank())
 ```
 
