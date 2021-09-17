@@ -3,7 +3,6 @@ from pyspark import SparkConf
 from pyspark.sql import SparkSession
 from pyspark.sql.window import Window
 from pyspark.sql.types import StructType, StructField, StringType
-from functools import reduce
 
 sparkConf = SparkConf()
 sparkConf = sparkConf.set('spark.hadoop.fs.gs.requester.pays.mode', 'AUTO')
@@ -151,7 +150,6 @@ clinical = (
         associations,
         on=["targetId", "diseaseId"],
         how="left")
-    .repartition(400)
     .persist()
 )
 
@@ -203,8 +201,8 @@ def aggregations(df,
         .withColumn("comparisonTotal",
                     F.approx_count_distinct("id", rsd=0.001)
                     .over(wComparison))
-        .select("prediction",
-                F.col("datasourceId").alias("comparison"),
+        .select(F.col(predictionColumn).alias("prediction"),
+                F.col(comparisonColumn).alias("comparison"),
                 "comparisonType",
                 "predictionType",
                 "a",
@@ -215,18 +213,26 @@ def aggregations(df,
         .filter(F.col("comparison").isNotNull())
         .distinct()
     )
-    return out
+    out.write.parquet(
+        "gs://ot-team/dochoa/predictions_aggregations/" +
+        comparisonColumn +
+        "_" +
+        predictionColumn +
+        ".parquet")
 
 
-# All combinations of comparisons and predictions
+# All combinations of comparisons and pjredictions
 aggSetups = (
     comparisons.join(predictions, how="full")
     .collect()
 )
 
-theList = [aggregations(clinical, *row) for row in aggSetups]
-out = reduce(lambda A, e: A.unionByName(e), theList)
+for row in aggSetups:
+    aggregations(clinical, *row)
 
-out.write.parquet(
-    path="gs://ot-team/dochoa/predictions_aggregations.parquet"
-    )
+# theList = [aggregations(clinical, *row) for row in aggSetups]
+# out = reduce(lambda A, e: A.unionByName(e), theList)
+
+# out.write.parquet(
+#     path="gs://ot-team/dochoa/predictions_aggregations.parquet"
+#     )

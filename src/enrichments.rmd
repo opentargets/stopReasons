@@ -1,375 +1,40 @@
+## Enrichments
 
-```{r, SparkConnection, include = FALSE}
-options("sparklyr.verbose" = TRUE)
-config <- spark_config()
+Current implementation:
+- Counts based on Target-Disease-Trial triples
+- Exclude some EVA evidence (beningns, unknown significance, etc.)
 
-# Allowing to GCP datasets access
-config$spark.hadoop.fs.gs.requester.pays.mode <- "AUTO" # nolint
-config$spark.hadoop.fs.gs.requester.pays.project.id <- "open-targets-eu-dev" # nolint
-
-# spark connect
-sc <- spark_connect(master = "yarn", config = config)
-
-```
-
-
-```{r, dataConfig}
-precitions_path <- "gs://ot-team/dochoa/predictions_stop.tsv"
-gs_path <- "gs://open-targets-data-releases/"
-data_release <- "21.06"
-all_evidence_path <- paste(
-    gs_path, data_release,
-    "/output/etl/parquet/evidence/",
-    sep = ""
-)
-disease_path <- paste(
-    gs_path, data_release,
-    "/output/etl/parquet/diseases/",
-    sep = ""
-)
-
-```
-
-## About the prediction results
-
-```{r, dataStopReasons}
-## Olesya's predictions for stop reason class
-stop_predictions <- spark_read_csv(
-    sc,
-    path = precitions_path,
-    delimiter = "\t",
-    header = TRUE,
-    memory = FALSE
-    ) %>%
-    filter(is.na(prediction) != TRUE) %>%
-        select("nctid" = "nct_id", prediction) %>%
-        sdf_distinct()
-```
-
-**Platform clinical data**. All information from ChEMBL: Clinical trial information + DailyMed + FDA. Includes a few other relevant fields: study start dates, clinical phase, stop reason.
-
-```{r, dataClinical}
-clinical <- spark_read_parquet(sc, all_evidence_path, memory = FALSE) %>%
-    filter(sourceId == "chembl") %>%
-    select(targetId, diseaseId, clinicalStatus,
-        clinicalPhase, studyStopReason, urls,
-        studyStartDate) %>%
-    sdf_unnest(urls) %>%
-    mutate(nctid = regexp_extract(url, "(.+)(id=%22)(.+)(%22)", 3)) %>%
-    left_join(stop_predictions, by = "nctid") %>%
-    mutate(nctid = ifelse(nctid == "", NA, nctid)) %>%
-    select(-url)
-```
-
-Clinical trial stop reason by year
-
-```{r, plotPredictionsByTime}
-
-stopped_trials <- clinical %>%
-    filter(!is.na(prediction)) %>%
-    select(
-        nctid, studyStartDate, prediction,
-        clinicalStatus, clinicalPhase
-    ) %>%
-    sdf_distinct() %>%
+```{r, runFisherTests, cache = TRUE}
+aggregations_path <- "gs://ot-team/dochoa/predictions_aggregations/*.parquet"
+all_aggregations <- spark_read_parquet(sc, aggregations_path) %>%
+    mutate(b = predictionTotal - a) %>%
+    mutate(c = comparisonTotal - a) %>%
+    mutate(d = total - b - c + a) %>%
     collect()
 
-
-stop_to_plot <- stopped_trials %>%
-    filter(as.Date(studyStartDate) <= today()) %>%
-    mutate(year = year(as.Date(studyStartDate))) %>%
-    group_by(year, prediction) %>%
-    summarise(count = n(), .groups = "drop") %>%
-    complete(year, prediction) %>%
-    mutate(
-        interval = cut(
-            count,
-            breaks = c(1, 5, 10, 25, 100, 150, Inf),
-            include.lowest = TRUE,
-            right = FALSE
-        )
-    ) %>%
-    mutate(interval = fct_recode(interval,
-        "1-4" = "[1,5)",
-        "5-9" = "[5,10)",
-        "10-24" = "[10,25)",
-        "25-99" = "[25,100)",
-        "100-149" = "[100,150)",
-        "150+" = "[150,Inf]"
-    ))
-
-stop_to_plot %>%
-    ggplot(aes(
-        x = year,
-        y = fct_reorder(prediction, count, sum, na.rm = TRUE)
-    )) +
-    geom_tile(aes(fill = interval), color = "white", size = .5) +
-    scale_x_continuous(expand = c(0, 0)) +
-    scale_fill_manual(
-        name = "Stopped trials",
-        na.value = "lightgrey",
-        values = viridisLite::viridis(length(levels(stop_to_plot$interval))),
-        breaks = levels(stop_to_plot$interval)
-    ) +
-    # scale_fill_viridis_b(na.value = "grey90") +
-    coord_fixed() +
-    theme_light() +
-    theme(
-        axis.ticks = element_blank(),
-        axis.line = element_blank(),
-        panel.border = element_blank(),
-        axis.title = element_blank()
-    )
-```
-
-Selected prediction classes as they progress in clinical trials.
-
-```{r, predictionByPhase}
-
-stopped_trials %>%
-    group_by(clinicalPhase, prediction) %>%
-    summarise(count = n(), .groups = "drop") %>%
-    inner_join(
-        stopped_trials %>%
-            group_by(clinicalPhase) %>%
-            summarise(stoppedByPhase = n()),
-        by = "clinicalPhase"
-    ) %>%
-    mutate(stopRatio = (count / stoppedByPhase)) %>%
-    filter(prediction %in% c("Safety_Sideeffects",
-    "Negative", "Study_Staff_Moved")) %>%
-    ggplot(aes(x = clinicalPhase, y = stopRatio, fill = fct_rev(prediction))) +
-        geom_area(alpha = 0.7, size = .25, color = "black") +
-        scale_y_continuous(
-            name = "Stopped studies (%)",
-            labels = scales::percent,
-            expand = c(0, 0)
-        ) +
-        scale_x_continuous(
-            name = "Clinical Phase",
-            expand = c(0, 0)
-        ) +
-        scale_fill_viridis_d(name = "Stop reason") +
-    theme_bw() +
-    theme(
-        legend.position = c(1, 1),
-        legend.justification = c(1, 1),
-        legend.background = element_blank(),
-        legend.margin = margin(r = 10, t = 10, unit = "pt")
-    )
-
-```
-
-
-**Genetic evidence data**. Filtering EVA to include only a subset of meaningful `clinicalSignificances`. The rest of the genetic evidence remain unfiltered. Scores available.
-
-```{r, dataGeneticEvd}
-## Genetic Evidence: with some minor filters
-## clinvar valid significances
-clinvar_valids <- c(
-    "affects",
-    "risk factor",
-    "pathogenic",
-    "likely pathogenic",
-    "protective",
-    "drug response"
-)
-all_evd <- spark_read_parquet(sc, all_evidence_path, memory = FALSE) %>%
-    # filter(datatypeId == "genetic_association") %>%
-    ## only subset of clinvar evidence
-    sdf_explode("clinicalSignificances", keep_all = TRUE) %>%
-    ## to improve performance
-    filter((clinicalSignificances %in% clinvar_valids) |
-    is.na(clinicalSignificances)) %>%
-    select(
-        "targetId", "diseaseId", "datasourceId", "datatypeId", "score"
-    )
-```
-
-**Re-computed associations**. Associations recomputed after removing non-relevant genetic data (bening mutations from EVA). Ontology expansion performed. 
-
-```{r, dataGenetic_ass}
-## Associations recomputed:
-## applying ontology expansion and showing max score
-disease_ancestors <- spark_read_parquet(sc, disease_path, memory = FALSE) %>%
-    select("diseaseId" = "id", "propagatedDiseaseId" = "ancestors") %>%
-    sdf_explode("propagatedDiseaseId", keep_all = TRUE) %>%
-    sdf_bind_rows(
-        spark_read_parquet(sc, disease_path) %>%
-            select("diseaseId" = "id", "propagatedDiseaseId" = "id")
-    )
-all_ass <- all_evd %>%
-    left_join(disease_ancestors, by = "diseaseId") %>%
-    select(-diseaseId) %>%
-    rename(diseaseId = propagatedDiseaseId) %>%
-    group_by(targetId, diseaseId, datasourceId, datatypeId) %>%
-    summarise(maxScore = max(score, na.rm = TRUE)) %>%
-    ungroup()
-    
-```
-
-
-## ???
-
-The search universe is defined as every target-disease-trial with a stop reason.
-
-```{r, dataGenetic}
-
-# comparison focuses on other t-d information supporting a trial
-comparisons_td <- sdf_bind_rows(
-    ## by datatype
-    all_ass %>%
-        select("targetId", "diseaseId", "comparison" = "datatypeId") %>%
-        sdf_distinct() %>%
-        mutate(comparisonType = "byDatatype"),
-    ## by datasource
-    all_ass %>%
-        select("targetId", "diseaseId", "comparison" = "datasourceId") %>%
-        sdf_distinct() %>%
-        mutate(comparisonType = "byDatasource")
-) %>%
-    mutate(comparisonBoolean = TRUE)
-
-# "predictions" focuses on different trial information
-predictions <- sdf_bind_rows(
-    # Predicted classses
-    clinical %>%
-        filter(!is.na(nctid) & !is.na(prediction)) %>%
-        select(nctid, prediction) %>%
-        sdf_distinct() %>%
-        mutate(predictionType = "class"),
-    # All stopped
-    clinical %>%
-        filter(clinicalStatus %in% c("Suspended", "Terminated",
-        "Withdrawn")) %>%
-        select(nctid) %>%
-        sdf_distinct() %>%
-        mutate(prediction = "All stopped") %>%
-        mutate(predictionType = "stopped"),
-    clinical %>%
-        filter(!is.na(nctid) & !is.na(prediction)) %>%
-        select(nctid, prediction) %>%
-        mutate(prediction = ifelse(
-            !(prediction %in% c(
-                "Negative", "Safety_Sideeffects", "Success",
-                "Business_Administrative", "Invalid_Reason"
-            )),
-            "Neutral",
-            prediction
-        )) %>%
-        sdf_distinct() %>%
-        mutate(predictionType = "metaclass"),
-    ## T-D in Phase IV+
-    clinical %>%
-    filter(clinicalPhase == 4) %>%
-    select(nctid) %>%
-    sdf_distinct() %>%
-    mutate(predictionType = "clinical") %>%
-    mutate(prediction = "Phase IV"),
-    ## T-D in Phase III+
-    clinical %>%
-    filter(clinicalPhase >= 3) %>%
-    select(nctid) %>%
-    sdf_distinct() %>%
-    mutate(predictionType = "clinical") %>%
-    mutate(prediction = "Phase III+"),
-    ## T-D in Phase II+
-    clinical %>%
-    filter(clinicalPhase >= 2) %>%
-    select(nctid) %>%
-    sdf_distinct() %>%
-    mutate(predictionType = "clinical") %>%
-    mutate(prediction = "Phase II+")
-)
-
-# Data frame with all the combinations exploded
-# WARNING: Big dataset
-longdf <- clinical %>%
-    # Defining universe and generate fake ID (target-disease-trial)
-    # filter(!is.na(nctid)) %>%
-    select(targetId, diseaseId, "nctid") %>%
-    sdf_distinct() %>%
-    sdf_with_unique_id("id") %>%
-    # Adding tests for the comparisons
-    # 1. Add all potential evidence classes
-    full_join(
-        comparisons_td %>%
-            select(comparison, comparisonType) %>%
-            sdf_distinct(),
-        by = character()
-    ) %>%
-    # Adding tests for the predictions
-    # 1. Add all prediction classes
-    full_join(
-        predictions %>%
-            select(prediction, predictionType) %>%
-            sdf_distinct(),
-        by = character()
-    ) %>%
-    # 2. Add all available evidence classes
-    left_join(comparisons_td,
-        by = c("targetId", "diseaseId", "comparison", "comparisonType")
-    ) %>%
-    na.replace(comparisonBoolean = FALSE) %>%
-    # 2. Add all prediction results
-    left_join(
-        predictions %>%
-            mutate(predictionBoolean = TRUE),
-        by = c("nctid", "prediction", "predictionType")
-    ) %>%
-    na.replace(predictionBoolean = FALSE)
-
-## Aggregations
-trials_by_prediction <- longdf %>%
-    filter(predictionBoolean == TRUE) %>%
-    group_by(prediction, predictionType) %>%
-    summarise(trialsByPrediction = n_distinct(id))
-
-trials_by_comparison <- longdf %>%
-    filter(comparisonBoolean == TRUE) %>%
-    group_by(comparison, comparisonType) %>%
-    summarise(trialsByComparison = n_distinct(id))
-
-
-
-aggregations <- longdf %>%
-    group_by(comparison, comparisonType, prediction, predictionType) %>%
-    summarise(
-        a = n_distinct(
-            ifelse(comparisonBoolean & predictionBoolean, id, NA),
-            na.rm = TRUE),
-        n = n_distinct(id)
-    ) %>%
-    ungroup() %>%
-    left_join(trials_by_prediction, by = c("prediction", "predictionType")) %>%
-    left_join(trials_by_comparison, by = c("comparison", "comparisonType")) %>%
-    mutate(b = trialsByPrediction - a) %>%
-    mutate(c = trialsByComparison - a) %>%
-    mutate(d = n - b - c + a) %>%
-    sdf_persist()
-
-```
-
-```{r, runFisherTests}
-aggregations_r <- aggregations %>%
-    collect()
 
 all_tests <- bind_cols(
-    aggregations_r,
-    aggregations_r %>%
+    all_aggregations,
+    all_aggregations %>%
+        mutate(d = ifelse(d < 0, 0, d)) %>%
         rowwise() %>%
         do(broom::tidy(fisher.test(matrix(c(.$a, .$b, .$c, .$d), nrow = 2))))
 )
     
 ```
 
-```{r, oddsPlot}
+### Stop reasons by datatype
+
+```{r, metaStopByDatatype}
 
 all_tests %>%
-    filter(predictionType %in% c("metaclass", "stopped", "clinical")) %>%
+    filter(predictionType %in% c("metareason", "clinical", "stopStatus")) %>%
+    filter(comparison %in% c("animal_model","genetic_association")) %>%
     filter(comparisonType == "byDatatype") %>%
-    filter(comparison != "known_drug") %>%
-    filter(a != 0) %>%
+    mutate(predictionType = fct_relevel(predictionType,
+    "clinical", "stopStatus", "metareason")) %>%
+    mutate(prediction = fct_reorder(prediction, estimate, median)) %>%
+    mutate(comparison = fct_rev(comparison)) %>%
     ggplot(aes(x = prediction, y = estimate)) +
     geom_hline(aes(yintercept = 1),
         size = .25,
@@ -378,10 +43,103 @@ all_tests %>%
     geom_errorbar(aes(ymin = conf.low, ymax = conf.high),
     width = 0) +
     geom_point() +
-        scale_y_log10() +
-        coord_flip() +
-        facet_grid(comparison ~ .) +
-        theme_light() +
-    theme(axis.title.y = element_blank())
+    scale_y_log10(name = "Odds Ratio (log)") +
+    coord_flip() +
+    facet_grid(
+        predictionType ~ comparison,
+        scales = "free_y",
+        space = "free_y") +
+    theme_cowplot() +
+    panel_border(color = "black") +    
+    theme(
+        axis.title.y = element_blank(),
+        # strip.text.y = element_blank(),
+        strip.background = element_rect(fill = NA),
+        panel.grid.major.y = element_blank()
+    )
+    
 ```
 
+### Stop reasons (meta) by genetic datasource
+
+```{r, metaStopByGeneticDatasource}
+genetic_ds <- c(
+    "clingen", 
+    "eva",
+    # "gene2phenotype",
+    "genomics_england",
+    "ot_genetics_portal",
+    # "phewas_catalog",
+    "uniprot_literature",
+    "uniprot_variants"
+)
+all_tests %>%
+    filter(predictionType %in% c("metareason", "clinical", "stopStatus")) %>%
+    filter(comparison %in% genetic_ds) %>%
+    filter(comparisonType == "byDatasource") %>%
+    mutate(predictionType = fct_relevel(predictionType,
+    "clinical", "stopStatus", "metareason")) %>%
+    mutate(prediction = fct_reorder(prediction, estimate, median)) %>%
+    # mutate(comparison = fct_rev(comparison)) %>%
+    ggplot(aes(x = prediction, y = estimate)) +
+    geom_hline(aes(yintercept = 1),
+        size = .25,
+        linetype = "dashed"
+    ) +
+    geom_errorbar(aes(ymin = conf.low, ymax = conf.high),
+    width = 0) +
+    geom_point() +
+    scale_y_log10(name = "Odds Ratio (log)") +
+    coord_flip() +
+    facet_grid(
+        predictionType ~ comparison,
+        scales = "free_y",
+        space = "free_y") +
+    theme_cowplot() +
+    panel_border(color = "black") +    
+    theme(
+        axis.title.y = element_blank(),
+        # strip.text.y = element_blank(),
+        strip.background = element_rect(fill = NA),
+        panel.grid.major.y = element_blank()
+    )
+
+```
+
+
+### The Cancer - Safety enrichment signal
+
+```{r, metaStopByCancerDatasource}
+cancer_ds <- c("cancer_gene_census", "intogen", "eva_somatic")
+all_tests %>%
+    filter(predictionType %in% c("metareason", "clinical", "stopStatus")) %>%
+    filter(comparison %in% cancer_ds) %>%
+    filter(comparisonType == "byDatasource") %>%
+    mutate(predictionType = fct_relevel(predictionType,
+    "clinical", "stopStatus", "metareason")) %>%
+    mutate(prediction = fct_reorder(prediction, estimate, median)) %>%
+    # mutate(comparison = fct_rev(comparison)) %>%
+    ggplot(aes(x = prediction, y = estimate)) +
+    geom_hline(aes(yintercept = 1),
+        size = .25,
+        linetype = "dashed"
+    ) +
+    geom_errorbar(aes(ymin = conf.low, ymax = conf.high),
+    width = 0) +
+    geom_point() +
+    scale_y_log10(name = "Odds Ratio (log)") +
+    coord_flip() +
+    facet_grid(
+        predictionType ~ comparison,
+        scales = "free_y",
+        space = "free_y") +
+    theme_cowplot() +
+    panel_border(color = "black") +    
+    theme(
+        axis.title.y = element_blank(),
+        # strip.text.y = element_blank(),
+        strip.background = element_rect(fill = NA),
+        panel.grid.major.y = element_blank()
+    )
+
+```

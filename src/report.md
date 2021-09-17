@@ -4,8 +4,8 @@ Study stop reasons
 
 -   [Clinical trial stop reason
     interpretation](#clinical-trial-stop-reason-interpretation)
-    -   [Sentence similarities](#sentence-similarities)
-    -   [Data prep](#data-prep)
+    -   [About the training set](#about-the-training-set)
+    -   [About the prediction results](#about-the-prediction-results)
     -   [???](#section)
     -   [Specific questions about
         enrollment](#specific-questions-about-enrollment)
@@ -13,7 +13,7 @@ Study stop reasons
 
 # Clinical trial stop reason interpretation
 
-## Sentence similarities
+## About the training set
 
 ``` r
 # reading vectors
@@ -45,7 +45,7 @@ freq <- read_csv(file = "../data/frequencies.csv",
 
     ## Rows: 36 Columns: 3
 
-    ## ── Column specification ─────
+    ## ── Column specification ──────────────
     ## Delimiter: ","
     ## chr (2): X1, X3
     ## dbl (1): X2
@@ -113,8 +113,6 @@ plot_grid(p_dendro,
 
 ![](report_files/figure-gfm/simDendroPlot-1.png)<!-- -->
 
-## Data prep
-
 ``` r
 precitions_path <- "gs://ot-team/dochoa/predictions_stop.tsv"
 gs_path <- "gs://open-targets-data-releases/"
@@ -131,7 +129,7 @@ disease_path <- paste(
 )
 ```
 
-**Stop reasons predictions from Olesya**
+## About the prediction results
 
 ``` r
 ## Olesya's predictions for stop reason class
@@ -226,37 +224,43 @@ stop_to_plot %>%
 
 ![](report_files/figure-gfm/plotPredictionsByTime-1.png)<!-- -->
 
-``` r
-total_by_phase <- clinical %>%
-    select(
-        nctid, studyStartDate, prediction,
-        clinicalStatus, clinicalPhase
-    ) %>%
-    sdf_distinct() %>%
-    collect() %>%
-    filter(!is.na(prediction)) %>%
-    group_by(clinicalPhase) %>%
-    summarise(trialByPhase = n())
+Selected prediction classes as they progress in clinical trials.
 
+``` r
 stopped_trials %>%
-    filter(prediction == "Negative") %>%
-    group_by(clinicalPhase) %>%
-    summarise(negativeCount = n()) %>%
-    inner_join(total_by_phase, by = "clinicalPhase") %>%
-    mutate(ratio = negativeCount / trialByPhase)
+    group_by(clinicalPhase, prediction) %>%
+    summarise(count = n(), .groups = "drop") %>%
+    inner_join(
+        stopped_trials %>%
+            group_by(clinicalPhase) %>%
+            summarise(stoppedByPhase = n()),
+        by = "clinicalPhase"
+    ) %>%
+    mutate(stopRatio = (count / stoppedByPhase)) %>%
+    filter(prediction %in% c("Safety_Sideeffects",
+    "Negative", "Study_Staff_Moved")) %>%
+    ggplot(aes(x = clinicalPhase, y = stopRatio, fill = fct_rev(prediction))) +
+        geom_area(alpha = 0.7, size = .25, color = "black") +
+        scale_y_continuous(
+            name = "Stopped studies (%)",
+            labels = scales::percent,
+            expand = c(0, 0)
+        ) +
+        scale_x_continuous(
+            name = "Clinical Phase",
+            expand = c(0, 0)
+        ) +
+        scale_fill_viridis_d(name = "Stop reason") +
+    theme_bw() +
+    theme(
+        legend.position = c(1, 1),
+        legend.justification = c(1, 1),
+        legend.background = element_blank(),
+        legend.margin = margin(r = 10, t = 10, unit = "pt")
+    )
 ```
 
-    ## # A tibble: 5 x 4
-    ##   clinicalPhase negativeCount
-    ##           <dbl>         <int>
-    ## 1             0             3
-    ## 2             1            83
-    ## 3             2           293
-    ## 4             3           132
-    ## 5             4            36
-    ## # … with 2 more variables:
-    ## #   trialByPhase <int>,
-    ## #   ratio <dbl>
+![](report_files/figure-gfm/predictionByPhase-1.png)<!-- -->
 
 **Genetic evidence data**. Filtering EVA to include only a subset of
 meaningful `clinicalSignificances`. The rest of the genetic evidence
@@ -307,6 +311,9 @@ genetic_ass <- genetic_evd %>%
 
 ## ???
 
+The search universe is defined as every target-disease-trial with a stop
+reason.
+
 ``` r
 comparisons_td <- sdf_bind_rows(
     ## all genetics
@@ -320,83 +327,56 @@ comparisons_td <- sdf_bind_rows(
     clinical %>%
     filter(clinicalPhase == 4) %>%
     select(targetId, diseaseId) %>%
-    distinct() %>%
+    sdf_distinct() %>%
     mutate(comparison = "Phase IV"),
     ## T-D in Phase III+
     clinical %>%
     filter(clinicalPhase >= 3) %>%
     select(targetId, diseaseId) %>%
-    distinct() %>%
+    sdf_distinct() %>%
     mutate(comparison = "Phase III+"),
     ## T-D in Phase II+
     clinical %>%
         filter(clinicalPhase >= 2) %>%
         select(targetId, diseaseId) %>%
-        distinct() %>%
+        sdf_distinct() %>%
         mutate(comparison = "Phase II+")
 ) %>%
     mutate(comparisonBoolean = TRUE)
-```
 
-    ## Warning: ORDER BY is ignored in subqueries without LIMIT
-    ## ℹ Do you need to move arrange() later in the pipeline or use window_order() instead?
+predictions <- sdf_bind_rows(
+    # Predicted classses
+    clinical %>%
+        filter(!is.na(nctid) & !is.na(prediction)) %>%
+        select(nctid, prediction),
+    clinical %>%
+        filter(clinicalStatus %in% c("Suspended", "Terminated",
+        "Withdrawn")) %>%
+        select(nctid) %>%
+        mutate(prediction = "stopped"),
+    clinical %>%
+        filter(!is.na(nctid) & !is.na(prediction)) %>%
+        select(nctid, prediction) %>%
+        mutate(prediction = ifelse(
+            !(prediction %in% c("Negative", "Safety_Sideeffects", "Success",
+            "Business_Administrative", "Invalid_Reason")),
+            "Neutral",
+            prediction))
+)
 
-    ## Warning: ORDER BY is ignored in subqueries without LIMIT
-    ## ℹ Do you need to move arrange() later in the pipeline or use window_order() instead?
-
-    ## Warning: ORDER BY is ignored in subqueries without LIMIT
-    ## ℹ Do you need to move arrange() later in the pipeline or use window_order() instead?
-
-    ## Warning: ORDER BY is ignored in subqueries without LIMIT
-    ## ℹ Do you need to move arrange() later in the pipeline or use window_order() instead?
-
-    ## Warning: ORDER BY is ignored in subqueries without LIMIT
-    ## ℹ Do you need to move arrange() later in the pipeline or use window_order() instead?
-
-    ## Warning: ORDER BY is ignored in subqueries without LIMIT
-    ## ℹ Do you need to move arrange() later in the pipeline or use window_order() instead?
-
-    ## Warning: ORDER BY is ignored in subqueries without LIMIT
-    ## ℹ Do you need to move arrange() later in the pipeline or use window_order() instead?
-
-    ## Warning: ORDER BY is ignored in subqueries without LIMIT
-    ## ℹ Do you need to move arrange() later in the pipeline or use window_order() instead?
-
-    ## Warning: ORDER BY is ignored in subqueries without LIMIT
-    ## ℹ Do you need to move arrange() later in the pipeline or use window_order() instead?
-
-    ## Warning: ORDER BY is ignored in subqueries without LIMIT
-    ## ℹ Do you need to move arrange() later in the pipeline or use window_order() instead?
-
-    ## Warning: ORDER BY is ignored in subqueries without LIMIT
-    ## ℹ Do you need to move arrange() later in the pipeline or use window_order() instead?
-
-    ## Warning: ORDER BY is ignored in subqueries without LIMIT
-    ## ℹ Do you need to move arrange() later in the pipeline or use window_order() instead?
-
-    ## Warning: ORDER BY is ignored in subqueries without LIMIT
-    ## ℹ Do you need to move arrange() later in the pipeline or use window_order() instead?
-
-    ## Warning: ORDER BY is ignored in subqueries without LIMIT
-    ## ℹ Do you need to move arrange() later in the pipeline or use window_order() instead?
-
-    ## Warning: ORDER BY is ignored in subqueries without LIMIT
-    ## ℹ Do you need to move arrange() later in the pipeline or use window_order() instead?
-
-``` r
 # Data frame with all the
 longdf <- clinical %>%
     # Defining universe and generate fake ID (target-disease-trial)
     filter(!is.na(nctid)) %>%
     select(targetId, diseaseId, "nctid") %>%
-    distinct() %>%
+    sdf_distinct() %>%
     sdf_with_sequential_id("id") %>%
     # Adding tests for the comparisons
     # 1. Add all potential evidence classes
     full_join(
         comparisons_td %>%
             select("comparison") %>%
-            distinct(),
+            sdf_distinct(),
         by = character()
     ) %>%
     # 2. Add all available evidence classes
@@ -409,7 +389,7 @@ longdf <- clinical %>%
     full_join(
         clinical %>%
             select(prediction) %>%
-            distinct() %>%
+            sdf_distinct() %>%
             na.omit(),
         by = character()
     ) %>%
@@ -418,50 +398,14 @@ longdf <- clinical %>%
         clinical %>%
             filter(!is.na(nctid) & !is.na(prediction)) %>%
             select("nctid", "prediction") %>%
-            distinct() %>%
+            sdf_distinct() %>%
             mutate(predictionBoolean = TRUE),
         by = c("nctid", "prediction")
     ) %>%
     na.replace(predictionBoolean = FALSE)
 ```
 
-    ## Warning: ORDER BY is ignored in subqueries without LIMIT
-    ## ℹ Do you need to move arrange() later in the pipeline or use window_order() instead?
-
-    ## Warning: ORDER BY is ignored in subqueries without LIMIT
-    ## ℹ Do you need to move arrange() later in the pipeline or use window_order() instead?
-
-    ## Warning: ORDER BY is ignored in subqueries without LIMIT
-    ## ℹ Do you need to move arrange() later in the pipeline or use window_order() instead?
-
-    ## Warning: ORDER BY is ignored in subqueries without LIMIT
-    ## ℹ Do you need to move arrange() later in the pipeline or use window_order() instead?
-
-    ## Warning: ORDER BY is ignored in subqueries without LIMIT
-    ## ℹ Do you need to move arrange() later in the pipeline or use window_order() instead?
-
-    ## Warning: ORDER BY is ignored in subqueries without LIMIT
-    ## ℹ Do you need to move arrange() later in the pipeline or use window_order() instead?
-
-    ## Warning: ORDER BY is ignored in subqueries without LIMIT
-    ## ℹ Do you need to move arrange() later in the pipeline or use window_order() instead?
-
     ## * Dropped 1 rows with 'na.omit' (21 => 20)
-
-    ## Warning: ORDER BY is ignored in subqueries without LIMIT
-    ## ℹ Do you need to move arrange() later in the pipeline or use window_order() instead?
-
-    ## Warning: ORDER BY is ignored in subqueries without LIMIT
-    ## ℹ Do you need to move arrange() later in the pipeline or use window_order() instead?
-
-    ## Warning: ORDER BY is ignored in subqueries without LIMIT
-    ## ℹ Do you need to move arrange() later in the pipeline or use window_order() instead?
-
-    ## Warning: ORDER BY is ignored in subqueries without LIMIT
-    ## ℹ Do you need to move arrange() later in the pipeline or use window_order() instead?
-
-    ## Warning: ORDER BY is ignored in subqueries without LIMIT
-    ## ℹ Do you need to move arrange() later in the pipeline or use window_order() instead?
 
 ``` r
 ## Aggregations
@@ -504,7 +448,8 @@ all_tests <- bind_cols(aggregations_r,
 
 ``` r
 all_tests %>%
-    filter(comparison %in% c("genetic", "Phase IV", "eva")) %>%
+    filter(comparison %in% c("genetic", "eva", "ot_genetics_portal")) %>%
+    # filter(prediction == "Negative") %>%
     filter(a != 0) %>%
     ggplot(aes(x = prediction, y = estimate)) +
     geom_hline(aes(yintercept = 1),

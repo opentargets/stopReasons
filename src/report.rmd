@@ -19,7 +19,22 @@ library("ggsci")
 library("cowplot")
 ```
 
+```{r, SparkConnection, include = FALSE}
+options("sparklyr.verbose" = TRUE)
+config <- spark_config()
+
+# Allowing to GCP datasets access
+config$spark.hadoop.fs.gs.requester.pays.mode <- "AUTO" # nolint
+config$spark.hadoop.fs.gs.requester.pays.project.id <- "open-targets-eu-dev" # nolint
+
+# spark connect
+sc <- spark_connect(master = "yarn", config = config)
+```
+
 ```{r, child=c('sentenceSimilarities.rmd')}
+```
+
+```{r, child=c('predictions.rmd')}
 ```
 
 ```{r, child=c('enrichments.rmd')}
