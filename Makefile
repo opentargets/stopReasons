@@ -9,7 +9,7 @@ SRCDIR= $(ROOTDIR)/src
 TMPDIR = $(ROOTDIR)/temp
 
 #Paths
-REPORT = $(DOCSDIR)/report.html
+REPORT = $(DOCSDIR)/index.html
 
 # Programs
 R ?= $(shell which R)
