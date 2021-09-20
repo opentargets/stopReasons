@@ -49,7 +49,7 @@ all_tests %>%
         predictionType ~ comparison,
         scales = "free_y",
         space = "free_y") +
-    theme_cowplot() +
+    theme_cowplot(font_size = 12) +
     panel_border(color = "black") +    
     theme(
         axis.title.y = element_blank(),
@@ -59,6 +59,43 @@ all_tests %>%
     )
     
 ```
+
+### More granular stop reasons by datatype
+
+```{r, StopByDatatype}
+all_tests %>%
+    filter(predictionType %in% c("reason", "clinical", "stopStatus")) %>%
+    filter(comparison %in% c("animal_model","genetic_association")) %>%
+    filter(comparisonType == "byDatatype") %>%
+    mutate(predictionType = fct_relevel(predictionType,
+    "clinical", "stopStatus", "reason")) %>%
+    mutate(prediction = fct_reorder(prediction, estimate, median)) %>%
+    mutate(comparison = fct_rev(comparison)) %>%
+    ggplot(aes(x = prediction, y = estimate)) +
+    geom_hline(aes(yintercept = 1),
+        size = .25,
+        linetype = "dashed"
+    ) +
+    geom_errorbar(aes(ymin = conf.low, ymax = conf.high),
+    width = 0) +
+    geom_point() +
+    scale_y_log10(name = "Odds Ratio (log)") +
+    coord_flip() +
+    facet_grid(
+        predictionType ~ comparison,
+        scales = "free_y",
+        space = "free_y") +
+    theme_cowplot(font_size = 12) +
+    panel_border(color = "black") +    
+    theme(
+        axis.title.y = element_blank(),
+        # strip.text.y = element_blank(),
+        strip.background = element_rect(fill = NA),
+        panel.grid.major.y = element_blank()
+    )
+    
+```
+
 
 ### Stop reasons (meta) by genetic datasource
 
@@ -95,7 +132,7 @@ all_tests %>%
         predictionType ~ comparison,
         scales = "free_y",
         space = "free_y") +
-    theme_cowplot() +
+    theme_cowplot(font_size = 12) +
     panel_border(color = "black") +    
     theme(
         axis.title.y = element_blank(),
@@ -133,7 +170,7 @@ all_tests %>%
         predictionType ~ comparison,
         scales = "free_y",
         space = "free_y") +
-    theme_cowplot() +
+    theme_cowplot(font_size = 12) +
     panel_border(color = "black") +    
     theme(
         axis.title.y = element_blank(),
@@ -142,4 +179,33 @@ all_tests %>%
         panel.grid.major.y = element_blank()
     )
 
+```
+
+
+### GWAS causality
+
+```{r, gwasL2Gscore}
+all_tests %>%
+    filter(comparisonType == "l2g") %>%
+    filter(prediction %in% c("Phase III+", "Negative")) %>%
+    mutate(comparison = str_replace(comparison, "l2g_", ">")) %>%
+    ggplot(aes(x = comparison, y = estimate, color = prediction)) +
+    geom_hline(aes(yintercept = 1),
+        size = .25,
+        linetype = "dashed"
+    ) +
+    geom_errorbar(aes(ymin = conf.low, ymax = conf.high),
+    width = 0) +
+    geom_point() +
+    scale_y_log10(name = "Odds Ratio (log)") +
+    scale_x_discrete(name = "GWAS predicted causality (L2G)") +
+    theme_cowplot(font_size = 12) +
+    panel_border(color = "black") +    
+    theme(
+        # strip.text.y = element_blank(),
+        strip.background = element_rect(fill = NA),
+        panel.grid.major.y = element_blank(),
+        legend.position = c(0.1,0.1),
+        legend.justification = c(0,0)
+    )
 ```

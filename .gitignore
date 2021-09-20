@@ -1,2 +1,2 @@
-aggregations_r.rds
-enrichments_cache/
+temp/
+src/report_cache/

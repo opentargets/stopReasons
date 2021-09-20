@@ -102,6 +102,34 @@ associations = (
     .distinct()
 )
 
+# l2g by datasource with some arbitrary cut-offs
+l2g = (
+    evidence
+    .filter(F.col("datasourceId") == "ot_genetics_portal")
+    .groupBy("targetId", "diseaseId")
+    .agg(F.max("score").alias("max_l2g"))
+    .withColumn("l2g_075",
+                F.when(F.col("max_l2g") > 0.75,
+                       "l2g_0.75")
+                .otherwise(F.lit(None)))
+    .withColumn("l2g_05",
+                F.when(F.col("max_l2g") > 0.5,
+                       "l2g_0.5")
+                .otherwise(F.lit(None)))
+    .withColumn("l2g_025",
+                F.when(F.col("max_l2g") > 0.25,
+                       "l2g_0.25")
+                .otherwise(F.lit(None)))
+    .withColumn("l2g_01",
+                F.when(F.col("max_l2g") > 0.1,
+                       "l2g_0.1")
+                .otherwise(F.lit(None)))
+    .withColumn("l2g_005",
+                F.when(F.col("max_l2g") > 0.05,
+                       "l2g_0.05")
+                .otherwise(F.lit(None)))
+)
+
 stoppedStatus = ["Terminated", "Withdrawn", "Suspended"]
 
 # relevant clinical information
@@ -145,6 +173,8 @@ clinical = (
     .withColumn("id", F.monotonically_increasing_id())
     # Olesya's data
     .join(stopPredictions, on="nctid", how="left")
+    # L2G cut-offs
+    .join(l2g, on=["targetId", "diseaseId"], how="left")
     # Datasources and Datatypes
     .join(
         associations,
@@ -155,7 +185,12 @@ clinical = (
 
 comparisons = spark.createDataFrame(
     data=[("datasourceId", "byDatasource"),
-          ("datatypeId", "byDatatype")],
+          ("datatypeId", "byDatatype"),
+          ("l2g_075", "l2g"),
+          ("l2g_05", "l2g"),
+          ("l2g_025", "l2g"),
+          ("l2g_01", "l2g"),
+          ("l2g_005", "l2g")],
     schema=StructType([
         StructField("comparison", StringType(), True),
         StructField("comparisonType", StringType(), True)]))

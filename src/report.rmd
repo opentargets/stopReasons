@@ -2,12 +2,19 @@
 title: "Study stop reasons"
 date: "`r format(Sys.time(), '%d %B, %Y')`"
 output:
-  github_document:
-    toc: true
-    toc_depth: 2 
+html_document:
+  code_folding:hide
+render: (function(inputFile, encoding) {
+  rmarkdown::render(inputFile, encoding = encoding, output_dir = "../docs") })
+
 ---
 
 # Clinical trial stop reason interpretation
+
+```{r, knitSetup, include=FALSE}
+knitr::opts_knit$set(root.dir = getwd())
+knitr::opts_chunk$set(cache.path = "../temp/")
+```
 
 ```{r, Rsetup, include = FALSE}
 library("tidyverse")
@@ -20,7 +27,6 @@ library("cowplot")
 ```
 
 ```{r, SparkConnection, include = FALSE}
-options("sparklyr.verbose" = TRUE)
 config <- spark_config()
 
 # Allowing to GCP datasets access
@@ -31,14 +37,18 @@ config$spark.hadoop.fs.gs.requester.pays.project.id <- "open-targets-eu-dev" # n
 sc <- spark_connect(master = "yarn", config = config)
 ```
 
-```{r, child=c('sentenceSimilarities.rmd')}
+```{r, child = 'sections/sentenceSimilarities.rmd'}
 ```
 
-```{r, child=c('predictions.rmd')}
+```{r, child = 'sections/predictions.rmd'}
 ```
 
-```{r, child=c('enrichments.rmd')}
+```{r, child = 'sections/enrichments.rmd'}
 ```
 
-## Specific questions about enrollment
-## Safety-relevant targets
+## TODO: Effect of distance to gene / L2G
+## TODO: Analysis by phase -> what happens with stopped T-Ds in subsequent phases
+## TODO: Specific questions about enrollment (rare diseases vs cancer?)
+## TODO: Safety-relevant targets are they more genetically constrained?
+## TODO: come back to original paper
+## TODO: Some alternative analysis by TA instead of by datasource?
