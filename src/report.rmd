@@ -2,11 +2,8 @@
 title: "Study stop reasons"
 date: "`r format(Sys.time(), '%d %B, %Y')`"
 output:
-html_document:
-  code_folding:hide
-render: (function(inputFile, encoding) {
-  rmarkdown::render(inputFile, encoding = encoding, output_dir = "../docs") })
-
+  html_document:
+    code_folding: hide
 ---
 
 # Clinical trial stop reason interpretation
