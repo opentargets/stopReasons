@@ -4,7 +4,6 @@
 Overall statistics and findings on the Clinical Trial stop reasons
 
 ```{r, predictions_dataConfig}
-precitions_path <- "gs://ot-team/dochoa/predictions_stop.tsv"
 gs_path <- "gs://open-targets-data-releases/"
 data_release <- "21.06"
 all_evidence_path <- paste(
@@ -12,11 +11,6 @@ all_evidence_path <- paste(
     "/output/etl/parquet/evidence/",
     sep = ""
 )
-# disease_path <- paste(
-#     gs_path, data_release,
-#     "/output/etl/parquet/diseases/",
-#     sep = ""
-# )
 ```
 
 ```{r, dataStopReasons}
@@ -127,11 +121,14 @@ stopped_trials %>%
     filter(prediction %in% c("Safety_Sideeffects",
     "Negative", "Study_Staff_Moved")) %>%
     ggplot(aes(x = clinicalPhase, y = stopRatio, fill = fct_rev(prediction))) +
-        geom_area(alpha = 0.7, size = .25, color = "black") +
+        # geom_area(alpha = 0.7, size = .25, color = "black") +
+        geom_bar(stat = "identity",
+        position = position_dodge2(),
+        color = "black") +
         scale_y_continuous(
             name = "Stopped studies (%)",
             labels = scales::percent,
-            expand = c(0, 0)
+            expand = c(0, 0, 0, 0.01)
         ) +
         scale_x_continuous(
             name = "Clinical Phase",
