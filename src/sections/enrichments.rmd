@@ -230,7 +230,7 @@ all_tests %>%
     width = 0) +
     geom_point() +
     scale_y_log10(name = "Odds Ratio (log)") +
-    scale_x_discrete(name = "GWAS predicted causality (L2G)") +
+    scale_x_discrete(name = "GWAS predicted causality (max L2G)") +
     theme_cowplot(font_size = 12) +
     panel_border(color = "black") +    
     theme(
