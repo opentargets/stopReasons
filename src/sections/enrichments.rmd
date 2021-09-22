@@ -182,6 +182,38 @@ all_tests %>%
 ```
 
 
+### Safety by Therapeutic area
+
+```{r, safetyByTA}
+all_tests %>%
+    filter(predictionType == "metareason") %>%
+    filter(prediction == "Safety_Sideeffects") %>%
+    # filter(predictionType %in% c("reason", "clinical", "stopStatus")) %>%
+    filter(comparisonType == "ta") %>%
+    mutate(comparison = fct_reorder(comparison, estimate, median)) %>%
+    ggplot(aes(x = comparison, y = estimate)) +
+    geom_hline(aes(yintercept = 1),
+        size = .25,
+        linetype = "dashed"
+    ) +
+    geom_errorbar(aes(ymin = conf.low, ymax = conf.high),
+    width = 0) +
+    geom_point() +
+    scale_y_log10(name = "Odds Ratio (log)") +
+    coord_flip() +
+    facet_grid(. ~ prediction) +
+    theme_cowplot(font_size = 12) +
+    panel_border(color = "black") +    
+    theme(
+        axis.title.y = element_blank()
+        # strip.text.y = element_blank(),
+        # strip.background = element_rect(fill = NA),
+        # panel.grid.major.y = element_blank()
+    )
+
+```
+
+
 ### GWAS causality
 
 ```{r, gwasL2Gscore}
@@ -209,3 +241,4 @@ all_tests %>%
         legend.justification = c(0,0)
     )
 ```
+

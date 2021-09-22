@@ -11,6 +11,12 @@ all_evidence_path <- paste(
     "/output/etl/parquet/evidence/",
     sep = ""
 )
+disease_path <- paste(
+    gs_path, data_release,
+    "/output/etl/parquet/diseases/",
+    sep = ""
+)
+    
 ```
 
 ```{r, dataStopReasons}
@@ -95,7 +101,7 @@ stop_to_plot %>%
     ) +
     # scale_fill_viridis_b(na.value = "grey90") +
     coord_fixed() +
-    theme_light() +
+    theme_cowplot() +
     theme(
         axis.ticks = element_blank(),
         axis.line = element_blank(),
@@ -142,4 +148,118 @@ stopped_trials %>%
         legend.background = element_blank(),
         legend.margin = margin(r = 10, t = 10, unit = "pt")
     )
+```
+
+Stopped trials by therapy area
+
+```{r, stoppedByTA}
+
+ta <- list(
+    "MONDO_0045024" = "cell proliferation disorder",
+    "EFO_0005741" = "infectious disease",
+    "OTAR_0000014" = "pregnancy or perinatal disease",
+    "EFO_0005932" = "animal disease",
+    "MONDO_0024458" = "disease of visual system",
+    "EFO_0000319" = "cardiovascular disease",
+    "EFO_0009605" = "pancreas disease",
+    "EFO_0010282" = "gastrointestinal disease",
+    "OTAR_0000017" = "reproductive system or breast disease",
+    "EFO_0010285" = "integumentary system disease",
+    "EFO_0001379" = "endocrine system disease",
+    "OTAR_0000010" = "respiratory or thoracic disease",
+    "EFO_0009690" = "urinary system disease",
+    "OTAR_0000006" = "musculoskeletal or connective tissue disease",
+    "MONDO_0021205" = "disease of ear",
+    "EFO_0000540" = "immune system disease",
+    "EFO_0005803" = "hematologic disease",
+    "EFO_0000618" = "nervous system disease",
+    "MONDO_0002025" = "psychiatric disorder",
+    "MONDO_0024297" = "nutritional or metabolic disease",
+    "OTAR_0000018" = "genetic, familial or congenital disease",
+    "OTAR_0000009" = "injury, poisoning or other complication",
+    "EFO_0000651" = "phenotype",
+    "EFO_0001444" = "measurement",
+    "GO_0008150" = "biological process"
+)
+
+ta_precedence <- data.frame(
+    id = names(ta),
+    taTerm = unlist(ta),
+    rank = seq_len(length(ta))
+)
+
+# one TA per disease
+disease_ta <- spark_read_parquet(sc, disease_path) %>%
+    select(id, therapeuticAreas) %>%
+    sdf_explode(therapeuticAreas) %>%
+    collect() %>%
+    left_join(ta_precedence, by = c("therapeuticAreas" = "id")) %>%
+    arrange(rank) %>%
+    group_by(id) %>%
+    mutate(idRank = rank(rank)) %>%
+    filter(idRank == 1) %>%
+    select(-rank, -idRank)
+
+stop_by_ta <- clinical %>%
+    filter(!is.na(prediction)) %>%
+    select(diseaseId, nctid, prediction) %>%
+    sdf_distinct() %>%
+    collect() %>%
+    left_join(disease_ta, by = c("diseaseId" = "id")) %>%
+    select(diseaseId, nctid, prediction, taTerm) %>%
+    group_by(taTerm, prediction) %>%
+    summarise(count = n(), .groups = "drop") %>%
+    complete(taTerm, prediction) %>%
+    mutate(
+        interval = cut(
+            count,
+            breaks = c(1, 5, 10, 25, 100, 150, Inf),
+            include.lowest = TRUE,
+            right = FALSE
+        )
+    ) %>%
+    mutate(interval = fct_recode(interval,
+        "1-4" = "[1,5)",
+        "5-9" = "[5,10)",
+        "10-24" = "[10,25)",
+        "25-99" = "[25,100)",
+        "100-149" = "[100,150)",
+        "150+" = "[150,Inf]"
+    ))
+
+stop_by_ta %>%
+    mutate(taTerm = fct_reorder(
+        taTerm,
+        count,
+        sum,
+        na.rm = TRUE)) %>%
+    mutate(prediction = fct_rev(fct_reorder(
+        prediction,
+        count,
+        sum,
+        na.rm = TRUE))) %>%
+    ggplot(aes(
+        y = taTerm,
+        x = prediction
+    )) +
+    geom_tile(aes(fill = interval), color = "white", size = .5) +
+    # scale_x_continuous(expand = c(0, 0)) +
+    scale_fill_manual(
+        name = "Stopped trials",
+        na.value = "lightgrey",
+        values = viridisLite::viridis(length(levels(stop_by_ta$interval))),
+        breaks = levels(stop_by_ta$interval)
+    ) +
+    # scale_fill_viridis_b(na.value = "grey90") +
+    coord_fixed() +
+    theme_light() +
+    theme(
+        axis.ticks = element_blank(),
+        axis.line = element_blank(),
+        panel.border = element_blank(),
+        axis.title = element_blank(),
+        axis.text.x = element_text(hjust = 1, angle = 45)
+    )
+
+
 ```
