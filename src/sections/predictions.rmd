@@ -101,7 +101,7 @@ stop_to_plot %>%
     ) +
     # scale_fill_viridis_b(na.value = "grey90") +
     coord_fixed() +
-    theme_cowplot() +
+    theme_cowplot(font_size = 12) +
     theme(
         axis.ticks = element_blank(),
         axis.line = element_blank(),
@@ -252,7 +252,7 @@ stop_by_ta %>%
     ) +
     # scale_fill_viridis_b(na.value = "grey90") +
     coord_fixed() +
-    theme_light() +
+    theme_cowplot(font_size = 12) +
     theme(
         axis.ticks = element_blank(),
         axis.line = element_blank(),
