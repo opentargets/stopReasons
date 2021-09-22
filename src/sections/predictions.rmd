@@ -51,7 +51,7 @@ clinical <- spark_read_parquet(sc, all_evidence_path, memory = FALSE) %>%
 
 Clinical trial stop reason by year
 
-```{r, plotPredictionsByTime}
+```{r, plotPredictionsByTime, fig.width = 9, fig.height = 7}
 
 stopped_trials <- clinical %>%
     filter(!is.na(prediction)) %>%
@@ -152,7 +152,7 @@ stopped_trials %>%
 
 Stopped trials by therapy area
 
-```{r, stoppedByTA}
+```{r, stoppedByTA, fig.width = 9, fig.height = 8}
 
 ta <- list(
     "MONDO_0045024" = "cell proliferation disorder",
