@@ -132,6 +132,54 @@ l2g = (
 
 stoppedStatus = ["Terminated", "Withdrawn", "Suspended"]
 
+
+# Assigning 1 and only 1 TA to every disease
+taDf = (
+    spark.createDataFrame(
+        data=[
+            ("MONDO_0045024", "cell proliferation disorder"),
+            ("EFO_0005741", "infectious disease"),
+            ("OTAR_0000014", "pregnancy or perinatal disease"),
+            ("EFO_0005932", "animal disease"),
+            ("MONDO_0024458", "disease of visual system"),
+            ("EFO_0000319", "cardiovascular disease"),
+            ("EFO_0009605", "pancreas disease"),
+            ("EFO_0010282", "gastrointestinal disease"),
+            ("OTAR_0000017", "reproductive system or breast disease"),
+            ("EFO_0010285", "integumentary system disease"),
+            ("EFO_0001379", "endocrine system disease"),
+            ("OTAR_0000010", "respiratory or thoracic disease"),
+            ("EFO_0009690", "urinary system disease"),
+            ("OTAR_0000006", "musculoskeletal or connective tissue disease"),
+            ("MONDO_0021205", "disease of ear"),
+            ("EFO_0000540", "immune system disease"),
+            ("EFO_0005803", "hematologic disease"),
+            ("EFO_0000618", "nervous system disease"),
+            ("MONDO_0002025", "psychiatric disorder"),
+            ("MONDO_0024297", "nutritional or metabolic disease"),
+            ("OTAR_0000018", "genetic, familial or congenital disease"),
+            ("OTAR_0000009", "injury, poisoning or other complication"),
+            ("EFO_0000651", "phenotype"),
+            ("EFO_0001444", "measurement"),
+            ("GO_0008150", "biological process")],
+        schema=StructType([
+            StructField("taId", StringType(), True),
+            StructField("taLabel", StringType(), True)]))
+    .withColumn("taRank", F.monotonically_increasing_id())
+)
+
+wByDisease = Window.partitionBy("diseaseId")
+diseaseTA = (
+    disease
+    .withColumn("taId", F.explode("therapeuticAreas"))
+    .select(F.col("id").alias("diseaseId"),
+            "taId")
+    .join(taDf, on="taId", how="left")
+    .withColumn("minRank", F.min("taRank").over(wByDisease))
+    .filter(F.col("taRank") == F.col("minRank"))
+    .drop("taRank", "minRank")
+)
+
 # relevant clinical information
 clinical = (
     evidence
@@ -175,6 +223,8 @@ clinical = (
     .join(stopPredictions, on="nctid", how="left")
     # L2G cut-offs
     .join(l2g, on=["targetId", "diseaseId"], how="left")
+    # Disease therapeutic area (only one by disease)
+    .join(diseaseTA, on="diseaseId", how="left")
     # Datasources and Datatypes
     .join(
         associations,
@@ -186,6 +236,7 @@ clinical = (
 comparisons = spark.createDataFrame(
     data=[("datasourceId", "byDatasource"),
           ("datatypeId", "byDatatype"),
+          ("taLabel", "ta"),
           ("l2g_075", "l2g"),
           ("l2g_05", "l2g"),
           ("l2g_025", "l2g"),
@@ -264,10 +315,3 @@ aggSetups = (
 
 for row in aggSetups:
     aggregations(clinical, *row)
-
-# theList = [aggregations(clinical, *row) for row in aggSetups]
-# out = reduce(lambda A, e: A.unionByName(e), theList)
-
-# out.write.parquet(
-#     path="gs://ot-team/dochoa/predictions_aggregations.parquet"
-#     )
