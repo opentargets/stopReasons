@@ -1,8 +1,6 @@
 
 ## Predictions results
 
-Overall statistics and findings on the Clinical Trial stop reasons
-
 ```{r, predictions_dataConfig}
 gs_path <- "gs://open-targets-data-releases/"
 data_release <- "21.06"
@@ -34,8 +32,6 @@ stop_predictions <- spark_read_csv(
         sdf_distinct()
 ```
 
-**Platform clinical data**. All information from ChEMBL: Clinical trial information + DailyMed + FDA. Includes a few other relevant fields: study start dates, clinical phase, stop reason.
-
 ```{r, dataClinical}
 clinical <- spark_read_parquet(sc, all_evidence_path, memory = FALSE) %>%
     filter(sourceId == "chembl") %>%
@@ -49,7 +45,7 @@ clinical <- spark_read_parquet(sc, all_evidence_path, memory = FALSE) %>%
     select(-url)
 ```
 
-Clinical trial stop reason by year
+### Predicted stop reason by year
 
 ```{r, plotPredictionsByTime, fig.width = 9, fig.height = 7}
 
@@ -110,7 +106,7 @@ stop_to_plot %>%
     )
 ```
 
-Selected prediction classes as they progress in clinical trials.
+### Selected predicted stop reason by clinical phase
 
 ```{r, predictionByPhase}
 
@@ -150,7 +146,7 @@ stopped_trials %>%
     )
 ```
 
-Stopped trials by therapy area
+### Predicted stop reason by therapy area
 
 ```{r, stoppedByTA, fig.width = 9, fig.height = 8}
 
@@ -260,6 +256,4 @@ stop_by_ta %>%
         axis.title = element_blank(),
         axis.text.x = element_text(hjust = 1, angle = 45)
     )
-
-
 ```

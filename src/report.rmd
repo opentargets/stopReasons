@@ -4,6 +4,7 @@ date: "`r format(Sys.time(), '%d %B, %Y')`"
 output:
   html_document:
     code_folding: hide
+    toc: true
 ---
 
 # Clinical trial stop reason interpretation
@@ -40,9 +41,11 @@ sc <- spark_connect(master = "yarn", config = config)
 ```{r, child = 'sections/predictions.rmd'}
 ```
 
-```{r, child = 'sections/enrichments.rmd'}
+```{r, child = 'sections/efficacy.rmd'}
+```
+
+```{r, child = 'sections/safety.rmd'}
 ```
 
 ## TODO: Analysis by phase -> what happens with stopped T-Ds in subsequent phases
-## TODO: Safety-relevant targets are they more genetically constrained?
 ## TODO: come back to original paper

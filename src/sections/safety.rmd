@@ -1,0 +1,99 @@
+
+## Studies stopped because of safety
+
+### Safety by Therapeutic area
+
+```{r, safetyByTA}
+all_tests %>%
+    filter(predictionType == "metareason") %>%
+    filter(prediction == "Safety_Sideeffects") %>%
+    # filter(predictionType %in% c("reason", "clinical", "stopStatus")) %>%
+    filter(comparisonType == "ta") %>%
+    mutate(comparison = fct_reorder(comparison, estimate, median)) %>%
+    ggplot(aes(x = comparison, y = estimate)) +
+    geom_hline(aes(yintercept = 1),
+        size = .25,
+        linetype = "dashed"
+    ) +
+    geom_errorbar(aes(ymin = conf.low, ymax = conf.high),
+    width = 0) +
+    geom_point() +
+    scale_y_log10(name = "Odds Ratio (log)") +
+    coord_flip() +
+    facet_grid(. ~ prediction) +
+    theme_cowplot(font_size = 12) +
+    panel_border(color = "black") +    
+    theme(
+        axis.title.y = element_blank()
+        # strip.text.y = element_blank(),
+        # strip.background = element_rect(fill = NA),
+        # panel.grid.major.y = element_blank()
+    )
+
+```
+
+### Safety by somatic T-D evidence
+
+```{r, metaStopByCancerDatasource}
+cancer_ds <- c("cancer_gene_census", "intogen", "eva_somatic")
+all_tests %>%
+    filter(predictionType %in% c("metareason", "clinical", "stopStatus")) %>%
+    filter(comparison %in% cancer_ds) %>%
+    filter(comparisonType == "byDatasource") %>%
+    mutate(predictionType = fct_relevel(predictionType,
+    "clinical", "stopStatus", "metareason")) %>%
+    mutate(prediction = fct_reorder(prediction, estimate, median)) %>%
+    # mutate(comparison = fct_rev(comparison)) %>%
+    ggplot(aes(x = prediction, y = estimate)) +
+    geom_hline(aes(yintercept = 1),
+        size = .25,
+        linetype = "dashed"
+    ) +
+    geom_errorbar(aes(ymin = conf.low, ymax = conf.high),
+    width = 0) +
+    geom_point() +
+    scale_y_log10(name = "Odds Ratio (log)") +
+    coord_flip() +
+    facet_grid(
+        predictionType ~ comparison,
+        scales = "free_y",
+        space = "free_y") +
+    theme_cowplot(font_size = 12) +
+    panel_border(color = "black") +    
+    theme(
+        axis.title.y = element_blank(),
+        # strip.text.y = element_blank(),
+        strip.background = element_rect(fill = NA),
+        panel.grid.major.y = element_blank()
+    )
+
+```
+
+### Safety by target genetic constrain
+
+```{r, safetyByGeneticConstrain}
+all_tests %>%
+    filter(comparisonType == "geneticConstrain") %>%
+    filter(predictionType == "metareason") %>%
+    filter(prediction == "Safety_Sideeffects") %>%
+    ggplot(aes(
+        x = comparison,
+        y = estimate,
+        color = prediction)) +
+    geom_hline(aes(yintercept = 1),
+        size = .25,
+        linetype = "dashed"
+    ) +
+    geom_errorbar(aes(ymin = conf.low, ymax = conf.high),
+    width = 0) +
+    geom_point() +
+    scale_color_discrete(name = "Study stop reason") +
+    scale_y_log10(name = "Odds Ratio (log)") +
+    scale_x_discrete(name = "pLOEUF genetic constrain bin (Gnomad)") +
+    theme_cowplot(font_size = 12) +
+    panel_border(color = "black") +    
+    theme(
+        legend.position = c(0.9, 0.9),
+        legend.justification = c(1, 1),
+    )
+```
