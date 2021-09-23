@@ -30,6 +30,11 @@ diseasePath = (
     "/output/etl/parquet/diseases"
 )
 
+# to be replaced by production version when genetic constrain goes live
+tempTargetPath = (
+    "gs://open-targets-pre-data-releases/21.09.1/output/etl/parquet/targets"
+)
+
 # ClinVar evidence we are interested
 clinvarValids = [
     "affects",
@@ -180,6 +185,14 @@ diseaseTA = (
     .drop("taRank", "minRank")
 )
 
+# target genetic constrain
+targetGC = (
+    spark.read.parquet(tempTargetPath)
+    .withColumn("gc", F.explode("constraint.upperBin6"))
+    .select(F.col("id").alias("targetId"),
+            F.col("gc").cast("string"))
+)
+
 # relevant clinical information
 clinical = (
     evidence
@@ -225,6 +238,8 @@ clinical = (
     .join(l2g, on=["targetId", "diseaseId"], how="left")
     # Disease therapeutic area (only one by disease)
     .join(diseaseTA, on="diseaseId", how="left")
+    # Target genetic constrain
+    .join(targetGC, on="targetId", how="left")
     # Datasources and Datatypes
     .join(
         associations,
@@ -237,6 +252,7 @@ comparisons = spark.createDataFrame(
     data=[("datasourceId", "byDatasource"),
           ("datatypeId", "byDatatype"),
           ("taLabel", "ta"),
+          ("gc", "geneticConstrain"),
           ("l2g_075", "l2g"),
           ("l2g_05", "l2g"),
           ("l2g_025", "l2g"),

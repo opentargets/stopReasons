@@ -213,6 +213,35 @@ all_tests %>%
 
 ```
 
+### Genetic constrain and safety
+
+```{r, safetyByGeneticConstrain}
+all_tests %>%
+    filter(comparisonType == "geneticConstrain") %>%
+    filter(predictionType == "metareason") %>%
+    filter(prediction == "Safety_Sideeffects") %>%
+    ggplot(aes(
+        x = comparison,
+        y = estimate,
+        color = prediction)) +
+    geom_hline(aes(yintercept = 1),
+        size = .25,
+        linetype = "dashed"
+    ) +
+    geom_errorbar(aes(ymin = conf.low, ymax = conf.high),
+    width = 0) +
+    geom_point() +
+    scale_color_discrete(name = "Study stop reason") +
+    scale_y_log10(name = "Odds Ratio (log)") +
+    scale_x_discrete(name = "pLOEUF genetic constrain bin (Gnomad)") +
+    theme_cowplot(font_size = 12) +
+    panel_border(color = "black") +    
+    theme(
+        legend.position = c(0.9, 0.9),
+        legend.justification = c(1, 1),
+    )
+
+```
 
 ### GWAS causality
 
