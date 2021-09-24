@@ -89,7 +89,7 @@ all_tests %>%
     geom_point() +
     scale_color_discrete(name = "Study stop reason") +
     scale_y_log10(name = "Odds Ratio (log)") +
-    scale_x_discrete(name = "pLOEUF genetic constrain bin (Gnomad)") +
+    scale_x_discrete(name = "pLOEUF target genetic constrain bin (GnomAD)") +
     theme_cowplot(font_size = 12) +
     panel_border(color = "black") +    
     theme(
