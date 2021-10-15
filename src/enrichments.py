@@ -17,7 +17,7 @@ spark = (
 )
 
 
-platformRelease = "21.06"
+platformRelease = "21.09"
 predictionsPath = "gs://ot-team/dochoa/predictions_stop.tsv"
 evdPath = (
     "gs://open-targets-data-releases/" +
@@ -29,10 +29,10 @@ diseasePath = (
     platformRelease +
     "/output/etl/parquet/diseases"
 )
-
-# to be replaced by production version when genetic constrain goes live
-tempTargetPath = (
-    "gs://open-targets-pre-data-releases/21.09.1/output/etl/parquet/targets"
+targetPath = (
+    "gs://open-targets-data-releases/" +
+    platformRelease +
+    "/output/etl/parquet/targets"
 )
 
 # ClinVar evidence we are interested
@@ -187,7 +187,7 @@ diseaseTA = (
 
 # target genetic constrain
 targetGC = (
-    spark.read.parquet(tempTargetPath)
+    spark.read.parquet(targetPath)
     .withColumn("gc", F.explode("constraint.upperBin6"))
     .select(F.col("id").alias("targetId"),
             F.col("gc").cast("string"))
