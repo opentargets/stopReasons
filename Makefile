@@ -17,6 +17,9 @@ RSCRIPT ?= $(shell which Rscript)
 
 report: $(REPORT)
 
+figures:
+	$(RSCRIPT) $(SRCDIR)/figures.R
+
 clean-report:
 	-rm $(REPORT)
 

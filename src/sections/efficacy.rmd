@@ -1,6 +1,6 @@
 ## Studies stopped because of efficacy
 
-```{r, runFisherTests, cache = TRUE}
+```{r, efficacy_runFisherTests, cache = TRUE}
 aggregations_path <- "gs://ot-team/dochoa/predictions_aggregations/*.parquet"
 all_aggregations <- spark_read_parquet(sc, aggregations_path) %>%
     mutate(b = predictionTotal - a) %>%
@@ -21,9 +21,9 @@ all_tests <- bind_cols(
 
 ### Stop reasons by datatype
 
-```{r, metaStopByDatatype}
+```{r, efficacy_meta_stop_by_datatype, cache = TRUE}
 
-all_tests %>%
+p_meta_stop_by_datatype <- all_tests %>%
     filter(predictionType %in% c("metareason", "clinical", "stopStatus")) %>%
     filter(comparison %in% c("animal_model","genetic_association")) %>%
     filter(comparisonType == "byDatatype") %>%
@@ -53,13 +53,13 @@ all_tests %>%
         strip.background = element_rect(fill = NA),
         panel.grid.major.y = element_blank()
     )
-    
+p_meta_stop_by_datatype
 ```
 
 ### More granular stop reasons by datatype
 
-```{r, StopByDatatype}
-all_tests %>%
+```{r, efficacy_meta_stop_by_datatype_granular}
+p_meta_stop_by_dt_granular <- all_tests %>%
     filter(predictionType %in% c("reason", "clinical", "stopStatus")) %>%
     filter(comparison %in% c("animal_model","genetic_association")) %>%
     filter(comparisonType == "byDatatype") %>%
@@ -89,13 +89,14 @@ all_tests %>%
         strip.background = element_rect(fill = NA),
         panel.grid.major.y = element_blank()
     )
-    
+p_meta_stop_by_dt_granular
+
 ```
 
 
 ### Stop reasons (meta) by genetic datasource
 
-```{r, metaStopByGeneticDatasource}
+```{r, efficacy_meta_by_genetic_ds}
 genetic_ds <- c(
     "clingen", 
     "eva",
@@ -106,7 +107,7 @@ genetic_ds <- c(
     "uniprot_literature",
     "uniprot_variants"
 )
-all_tests %>%
+p_efficacy_meta_by_genetic_ds <- all_tests %>%
     filter(predictionType %in% c("metareason", "clinical", "stopStatus")) %>%
     filter(comparison %in% genetic_ds) %>%
     filter(comparisonType == "byDatasource") %>%
@@ -136,14 +137,15 @@ all_tests %>%
         strip.background = element_rect(fill = NA),
         panel.grid.major.y = element_blank()
     )
+p_efficacy_meta_by_genetic_ds
 
 ```
 
 
 ### GWAS causality
 
-```{r, gwasL2Gscore}
-all_tests %>%
+```{r, efficacy_gwasL2Gscore, cache = TRUE}
+p_efficacy_gwas_l2g_score <- all_tests %>%
     filter(comparisonType == "l2g") %>%
     filter(prediction %in% c("Phase III+", "Negative")) %>%
     mutate(comparison = str_replace(comparison, "l2g_", ">")) %>%
@@ -166,4 +168,5 @@ all_tests %>%
         legend.position = c(0.1,0.1),
         legend.justification = c(0,0)
     )
+p_efficacy_gwas_l2g_score
 ```

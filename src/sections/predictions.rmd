@@ -17,7 +17,7 @@ disease_path <- paste(
     
 ```
 
-```{r, dataStopReasons}
+```{r, predictions_dataStopReasons}
 ## Olesya's predictions for stop reason class
 precitions_path <- "gs://ot-team/dochoa/predictions_stop.tsv"
 stop_predictions <- spark_read_csv(
@@ -32,7 +32,7 @@ stop_predictions <- spark_read_csv(
         sdf_distinct()
 ```
 
-```{r, dataClinical}
+```{r, predictions_dataClinical}
 clinical <- spark_read_parquet(sc, all_evidence_path, memory = FALSE) %>%
     filter(sourceId == "chembl") %>%
     select(targetId, diseaseId, clinicalStatus,
@@ -47,7 +47,7 @@ clinical <- spark_read_parquet(sc, all_evidence_path, memory = FALSE) %>%
 
 ### Predicted stop reason by year
 
-```{r, plotPredictionsByTime, fig.width = 9, fig.height = 7}
+```{r, predictions_by_date, cache = TRUE, fig.width = 9, fig.height = 7}
 
 stopped_trials <- clinical %>%
     filter(!is.na(prediction)) %>%
@@ -82,7 +82,7 @@ stop_to_plot <- stopped_trials %>%
         "150+" = "[150,Inf]"
     ))
 
-stop_to_plot %>%
+p_predictions_by_date <- stop_to_plot %>%
     ggplot(aes(
         x = year,
         y = fct_reorder(prediction, count, sum, na.rm = TRUE)
@@ -104,13 +104,15 @@ stop_to_plot %>%
         panel.border = element_blank(),
         axis.title = element_blank()
     )
+p_predictions_by_date
+
 ```
 
 ### Selected predicted stop reason by clinical phase
 
-```{r, predictionByPhase}
+```{r, predictions_by_phase, cache = TRUE}
 
-stopped_trials %>%
+p_predictions_by_phase <- stopped_trials %>%
     group_by(clinicalPhase, prediction) %>%
     summarise(count = n(), .groups = "drop") %>%
     inner_join(
@@ -137,18 +139,19 @@ stopped_trials %>%
             expand = c(0, 0)
         ) +
         scale_fill_viridis_d(name = "Stop reason") +
-    theme_bw() +
-    theme(
-        legend.position = c(1, 1),
-        legend.justification = c(1, 1),
-        legend.background = element_blank(),
-        legend.margin = margin(r = 10, t = 10, unit = "pt")
-    )
+        theme_bw() +
+        theme(
+            legend.position = c(1, 1),
+            legend.justification = c(1, 1),
+            legend.background = element_blank(),
+            legend.margin = margin(r = 10, t = 10, unit = "pt")
+        )
+p_predictions_by_phase
 ```
 
 ### Predicted stop reason by therapy area
 
-```{r, stoppedByTA, fig.width = 9, fig.height = 8}
+```{r, predictions_stopped_by_ta, cache = TRUE, fig.width = 9, fig.height = 8}
 
 ta <- list(
     "MONDO_0045024" = "cell proliferation disorder",
@@ -223,7 +226,7 @@ stop_by_ta <- clinical %>%
         "150+" = "[150,Inf]"
     ))
 
-stop_by_ta %>%
+p_predictions_stopped_by_ta <- stop_by_ta %>%
     mutate(taTerm = fct_reorder(
         taTerm,
         count,
@@ -256,4 +259,5 @@ stop_by_ta %>%
         axis.title = element_blank(),
         axis.text.x = element_text(hjust = 1, angle = 45)
     )
+p_predictions_stopped_by_ta
 ```

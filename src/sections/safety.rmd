@@ -3,8 +3,8 @@
 
 ### Safety by Therapeutic area
 
-```{r, safetyByTA}
-all_tests %>%
+```{r, safety_byTA, cache = TRUE}
+p_safety_by_tA <- all_tests %>%
     filter(predictionType == "metareason") %>%
     filter(prediction == "Safety_Sideeffects") %>%
     # filter(predictionType %in% c("reason", "clinical", "stopStatus")) %>%
@@ -29,14 +29,14 @@ all_tests %>%
         # strip.background = element_rect(fill = NA),
         # panel.grid.major.y = element_blank()
     )
-
+p_safety_by_tA
 ```
 
 ### Safety by somatic T-D evidence
 
-```{r, metaStopByCancerDatasource}
+```{r, safety_by_cancer_datasource}
 cancer_ds <- c("cancer_gene_census", "intogen", "eva_somatic")
-all_tests %>%
+p_safety_by_cancer_datasource <- all_tests %>%
     filter(predictionType %in% c("metareason", "clinical", "stopStatus")) %>%
     filter(comparison %in% cancer_ds) %>%
     filter(comparisonType == "byDatasource") %>%
@@ -66,13 +66,13 @@ all_tests %>%
         strip.background = element_rect(fill = NA),
         panel.grid.major.y = element_blank()
     )
-
+p_safety_by_cancer_datasource
 ```
 
 ### Safety by target genetic constrain
 
-```{r, safetyByGeneticConstrain}
-all_tests %>%
+```{r, safety_by_genetic_constrain, cache = TRUE}
+p_safety_by_genetic_constrain <- all_tests %>%
     filter(comparisonType == "geneticConstrain") %>%
     filter(predictionType == "metareason") %>%
     filter(prediction == "Safety_Sideeffects") %>%
@@ -96,4 +96,5 @@ all_tests %>%
         legend.position = c(0.9, 0.9),
         legend.justification = c(1, 1),
     )
+p_safety_by_genetic_constrain
 ```
