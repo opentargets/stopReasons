@@ -1,27 +1,27 @@
 library(tidyverse)
 library(cowplot)
-# library(gridExtra)
+library(stringr)
 library(viridis)
 
 dir <- normalizePath("./temp/")
 # Function to quickly load chunks based on name
-smartLoadName <- function(dir, key){
-  allfiles <- list.files(dir, pattern=".RData")
-  allfiles <- allfiles[str_detect(allfiles, key)]
-  allfiles <- allfiles[which.min(str_length(allfiles))]
-  filename <- str_match(allfiles, "(.+)\\.RData")[,2]
-  return(paste(dir, filename, sep="/"))
+smart_load_name <- function(dir, key) {
+  allfiles <- list.files(dir, pattern = ".RData")
+  allfiles <- allfiles[stringr::str_detect(allfiles, key)]
+  allfiles <- allfiles[which.min(stringr::str_length(allfiles))]
+  filename <- stringr::str_match(allfiles, "(.+)\\.RData")[, 2]
+  return(paste(dir, filename, sep = "/"))
 }
 scientific_10 <- function(x) {
-  parse(text=gsub("e", " %*% 10^", scales::scientific_format()(x)))
+  parse(text = gsub("e", " %*% 10^", scales::scientific_format()(x)))
 }
 
 ######################
 ## Predictions figure
 ######################
 
-lazyLoad(smartLoadName(dir, "predictions_by_date"))
-lazyLoad(smartLoadName(dir, "predictions_by_phase"))
+lazyLoad(smart_load_name(dir, "predictions_by_date"))
+lazyLoad(smart_load_name(dir, "predictions_by_phase"))
 
 theme_set(theme_cowplot(font_size = 9))
 
@@ -41,7 +41,7 @@ outputs <- c(
     "./docs/figures/figurePredictions.pdf"
 )
 
-lapply(outputs, function(x){
+lapply(outputs, function(x) {
     save_plot(
         filename = x,
         plot = p_predictions,
@@ -57,8 +57,8 @@ lapply(outputs, function(x){
 ## Efficacy figure
 ####################
 
-lazyLoad(smartLoadName(dir, "efficacy_meta_stop_by_datatype"))
-lazyLoad(smartLoadName(dir, "efficacy_gwasL2Gscore"))
+lazyLoad(smart_load_name(dir, "efficacy_meta_stop_by_datatype"))
+lazyLoad(smart_load_name(dir, "efficacy_gwasL2Gscore"))
 
 theme_set(theme_cowplot(font_size = 9))
 
@@ -78,7 +78,7 @@ outputs <- c(
     "./docs/figures/figureEfficacy.pdf"
 )
 
-lapply(outputs, function(x){
+lapply(outputs, function(x) {
     save_plot(
         filename = x,
         plot = p_efficacy,
@@ -94,8 +94,8 @@ lapply(outputs, function(x){
 ## Safety figure
 ####################
 
-lazyLoad(smartLoadName(dir, "safety_byTA"))
-lazyLoad(smartLoadName(dir, "safety_by_genetic_constrain"))
+lazyLoad(smart_load_name(dir, "safety_byTA"))
+lazyLoad(smart_load_name(dir, "safety_by_genetic_constrain"))
 
 theme_set(theme_cowplot(font_size = 9))
 
@@ -115,7 +115,7 @@ outputs <- c(
     "./docs/figures/figureSafety.pdf"
 )
 
-lapply(outputs, function(x){
+lapply(outputs, function(x) {
     save_plot(
         filename = x,
         plot = p_safety,
@@ -126,4 +126,3 @@ lapply(outputs, function(x){
         base_width = 6
     )
 })
-
