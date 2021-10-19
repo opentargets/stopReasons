@@ -34,6 +34,7 @@ targetPath = (
     platformRelease +
     "/output/etl/parquet/targets"
 )
+hpaPath = "gs://ot-team/dochoa/proteinatlas.json.gz"
 
 # ClinVar evidence we are interested
 clinvarValids = [
@@ -45,9 +46,11 @@ clinvarValids = [
     "drug response"
 ]
 
-# Load platform datasets
+# Load datasets
 evidence = spark.read.parquet(evdPath)
 disease = spark.read.parquet(diseasePath)
+target = spark.read.parquet(targetPath)
+hpa = spark.read.json(hpaPath)
 
 # Stop predictions from Olesya
 nonNeutralPredictions = [
@@ -187,10 +190,18 @@ diseaseTA = (
 
 # target genetic constrain
 targetGC = (
-    spark.read.parquet(targetPath)
+    target
     .withColumn("gc", F.explode("constraint.upperBin6"))
     .select(F.col("id").alias("targetId"),
             F.col("gc").cast("string"))
+)
+
+# hpa expression
+hpaExpr = (
+    hpa
+    .select(F.col("Ensembl").alias("targetId"),
+            F.col("RNA tissue distribution").alias("rnaDistribution"),
+            F.col("RNA tissue specificity").alias("rnaSpecificity"))
 )
 
 # relevant clinical information
@@ -240,6 +251,8 @@ clinical = (
     .join(diseaseTA, on="diseaseId", how="left")
     # Target genetic constrain
     .join(targetGC, on="targetId", how="left")
+    # Expression specificity
+    .join(hpaExpr, on="targetId", how="left")
     # Datasources and Datatypes
     .join(
         associations,
@@ -253,6 +266,8 @@ comparisons = spark.createDataFrame(
           ("datatypeId", "byDatatype"),
           ("taLabel", "ta"),
           ("gc", "geneticConstrain"),
+          ("rnaDistribution", "rnaDistribution"),
+          ("rnaSpecificity", "rnaSpecificity"),
           ("l2g_075", "l2g"),
           ("l2g_05", "l2g"),
           ("l2g_025", "l2g"),
