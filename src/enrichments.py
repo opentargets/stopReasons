@@ -145,34 +145,82 @@ stoppedStatus = ["Terminated", "Withdrawn", "Suspended"]
 taDf = (
     spark.createDataFrame(
         data=[
-            ("MONDO_0045024", "cell proliferation disorder"),
-            ("EFO_0005741", "infectious disease"),
-            ("OTAR_0000014", "pregnancy or perinatal disease"),
-            ("EFO_0005932", "animal disease"),
-            ("MONDO_0024458", "disease of visual system"),
-            ("EFO_0000319", "cardiovascular disease"),
-            ("EFO_0009605", "pancreas disease"),
-            ("EFO_0010282", "gastrointestinal disease"),
-            ("OTAR_0000017", "reproductive system or breast disease"),
-            ("EFO_0010285", "integumentary system disease"),
-            ("EFO_0001379", "endocrine system disease"),
-            ("OTAR_0000010", "respiratory or thoracic disease"),
-            ("EFO_0009690", "urinary system disease"),
-            ("OTAR_0000006", "musculoskeletal or connective tissue disease"),
-            ("MONDO_0021205", "disease of ear"),
-            ("EFO_0000540", "immune system disease"),
-            ("EFO_0005803", "hematologic disease"),
-            ("EFO_0000618", "nervous system disease"),
-            ("MONDO_0002025", "psychiatric disorder"),
-            ("MONDO_0024297", "nutritional or metabolic disease"),
-            ("OTAR_0000018", "genetic, familial or congenital disease"),
-            ("OTAR_0000009", "injury, poisoning or other complication"),
-            ("EFO_0000651", "phenotype"),
-            ("EFO_0001444", "measurement"),
-            ("GO_0008150", "biological process")],
+            (
+                "MONDO_0045024",
+                "cell proliferation disorder",
+                "Oncology"
+            ),
+            (
+                "EFO_0005741",
+                "infectious disease",
+                "Other"
+            ),
+            (
+                "OTAR_0000014",
+                "pregnancy or perinatal disease",
+                "Other"
+            ),
+            (
+                "EFO_0005932",
+                "animal disease",
+                "Other"
+            ),
+            (
+                "MONDO_0024458",
+                "disease of visual system",
+                "Other"
+            ),
+            (
+                "EFO_0000319",
+                "cardiovascular disease",
+                "Cardiovascular disease"
+            ),
+            (
+                "EFO_0009605",
+                "pancreas disease",
+                "Other"
+            ),
+            (
+                "EFO_0010282",
+                "gastrointestinal disease",
+                "Gastrointenstinal disease"
+            ),
+            (
+                "OTAR_0000017",
+                "reproductive system or breast disease",
+                "Other"
+            ),
+            (
+                "EFO_0010285",
+                "integumentary system disease",
+                "Other"
+            ),
+            ("EFO_0001379", "endocrine system disease", "Other"),
+            ("OTAR_0000010", "respiratory or thoracic disease", "Other"),
+            ("EFO_0009690", "urinary system disease",
+             "Renal and urinary disorders"),
+            ("OTAR_0000006", "musculoskeletal or connective tissue disease",
+             "musculoskeletal and connective tissue disease"),
+            ("MONDO_0021205", "disease of ear", "Other"),
+            ("EFO_0000540", "immune system disease", "Immune system disease"),
+            ("EFO_0005803", "hematologic disease", "Other"),
+            ("EFO_0000618", "nervous system disease",
+             "Nervous system disease"),
+            ("MONDO_0002025", "psychiatric disorder", "Other"),
+            ("MONDO_0024297", "nutritional or metabolic disease", "Other"),
+            ("OTAR_0000018",
+             "genetic, familial or congenital disease",
+             "Other"),
+            ("OTAR_0000009",
+             "injury, poisoning or other complication",
+             "Other"),
+            ("EFO_0000651", "phenotype", "Other"),
+            ("EFO_0001444", "measurement", "Other"),
+            ("GO_0008150", "biological process", "Other")],
         schema=StructType([
             StructField("taId", StringType(), True),
-            StructField("taLabel", StringType(), True)]))
+            StructField("taLabel", StringType(), True),
+            StructField("taLabelSimple", StringType(), True)]))
     .withColumn("taRank", F.monotonically_increasing_id())
 )
 
@@ -264,7 +312,7 @@ clinical = (
 comparisons = spark.createDataFrame(
     data=[("datasourceId", "byDatasource"),
           ("datatypeId", "byDatatype"),
-          ("taLabel", "ta"),
+          ("taLabelSimple", "ta"),
           ("gc", "geneticConstrain"),
           ("rnaDistribution", "rnaDistribution"),
           ("rnaSpecificity", "rnaSpecificity"),
