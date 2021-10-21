@@ -94,21 +94,11 @@ lapply(outputs, function(x) {
 ## Safety figure
 ####################
 
-lazyLoad(smart_load_name(dir, "safety_byTA"))
-lazyLoad(smart_load_name(dir, "safety_by_genetic_constrain"))
+lazyLoad(smart_load_name(dir, "safety_main"))
 
 theme_set(theme_cowplot(font_size = 9))
 
-p_safety <- plot_grid(
-    p_safety_by_tA,
-    p_safety_by_genetic_constrain,
-    nrow = 2,
-    scale = 0.98,
-    align = "v",
-    axis = "l",
-    rel_heights = c(1, 0.6),
-    labels = c("a", "b")
-)
+p_safety <- p_safety_main
 
 outputs <- c(
     "./docs/figures/figureSafety.png",
@@ -122,7 +112,7 @@ lapply(outputs, function(x) {
         scale = 0.95,
         ncol = 1,
         nrow = 1,
-        base_height = 9,
-        base_width = 6
+        base_height = 7,
+        base_width = 9
     )
 })

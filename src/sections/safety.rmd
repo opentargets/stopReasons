@@ -4,7 +4,7 @@
 ### Safety by Therapeutic area
 
 ```{r, safety_byTA, cache = TRUE}
-p_safety_by_tA <- all_tests %>%
+p_safety_by_ta <- all_tests %>%
     filter(predictionType == "metareason") %>%
     filter(prediction == "Safety_Sideeffects") %>%
     # filter(predictionType %in% c("reason", "clinical", "stopStatus")) %>%
@@ -29,7 +29,137 @@ p_safety_by_tA <- all_tests %>%
         # strip.background = element_rect(fill = NA),
         # panel.grid.major.y = element_blank()
     )
-p_safety_by_tA
+p_safety_by_ta
+```
+
+```{r, safety_main, cache = TRUE}
+stars_pval <- function(p_value){
+  unclass(
+    symnum(
+      p_value,
+      corr = FALSE,
+      na = FALSE,
+      cutpoints = c(0, 0.0001, 0.001, 0.01, 0.05,  1),
+      symbols = c("****", "***", "**", "*",  "ns")
+    )
+  )
+}
+
+toplot_safety_main <- all_tests %>%
+    filter(predictionType == "metareason") %>%
+    filter(prediction == "Safety_Sideeffects") %>%
+    filter(comparisonType %in% c("ta", "geneticConstrain", "rnaSpecificity", "lof_tolerance")) %>%
+    mutate(comparison = fct_reorder(comparison, estimate)) %>%
+    mutate(comparison = fct_relevel(
+        comparison,
+        "Tissue enriched",
+        "Group enriched",
+        "Tissue enhanced",
+        "Low tissue specificity"
+    )) %>%
+    mutate(comparison = fct_recode(comparison,
+        "Very high" = "0",
+        "High" = "1",
+        "Medium" = "2",
+        "Low" = "3",
+        "Very low" = "4",
+        "Lowest" = "5"
+    )) %>%
+    mutate(comparison = fct_recode(comparison,
+        "Intolerant (pLI > 0.9)" = "LoF intolerant",
+        "Tolerant (pLI < 0.1)" = "LoF tolerant"
+    )) %>%
+    mutate(comparisonType = fct_recode(
+        comparisonType,
+        "LoF" = "lof_tolerance",
+        "RNA specificity" = "rnaSpecificity",
+        "Indication" = "ta",
+        "Genetic Constrain (LOEUF bin)" = "geneticConstrain"
+    )) %>%
+    mutate(comparisonType = fct_rev(fct_reorder(comparisonType, estimate, max, na.rm = TRUE))) %>%
+    mutate(prediction = fct_recode(prediction, "Trials stopped because of Safety" = "Safety_Sideeffects")) %>%
+    mutate(oddsinterval = paste(round(estimate, digits = 3), " (", round(conf.low, digits = 2), "-", round(conf.high, digits = 2), ")", sep = "")) %>%
+    mutate(significance = stars_pval(p.value))
+
+p_safety_main_dots <- toplot_safety_main %>%
+    ggplot(aes(x = comparison, y = estimate)) +
+    geom_hline(aes(yintercept = 1),
+        size = .25,
+        linetype = "dashed"
+    ) +
+    geom_errorbar(aes(ymin = conf.low, ymax = conf.high),
+    width = 0, color = "steelblue", size = 1) +
+    geom_point(color = "steelblue", size = 3) +
+    scale_y_log10(name = "Odds Ratio (log)", position = "right") +
+    scale_x_discrete(labels = function(x) 
+    stringr::str_wrap(x, width = 25)) +
+    coord_flip() +
+    facet_grid(comparisonType ~ .,
+        scale = "free_y",
+        space = "free_y",
+        switch = "y"
+    ) +
+    theme_cowplot(font_size = 12) +
+    panel_border(color = "black") +
+    theme(
+        axis.title.y = element_blank(),
+        # strip.text.y = element_blank(),
+        axis.line = element_blank(),
+        # panel.spacing = unit(0, "lines"),
+        panel.spacing = unit(-0.1, "lines"),
+        strip.placement = "outside",
+        strip.background = element_blank(),
+        strip.switch.pad.grid = unit(20, "pt")
+    )
+    # strip.background = element_rect(fill = NA),
+    # strip.text.y = element_blank()
+
+p_safety_main_numbers <- toplot_safety_main %>%
+    mutate(a = formatC(a, format="d", big.mark=",")) %>%
+    select(comparison, comparisonType, prediction, a, oddsinterval, significance) %>%
+    gather(key, value, -comparison, -comparisonType, -prediction) %>%
+    mutate(key = fct_recode(key,
+    "n" = "a",
+    "OR (95% CI)" = "oddsinterval",
+    "Significance" = "significance")) %>%
+    ggplot(aes(x = comparison, y = key)) +
+    # geom_tile(fill = NA, color = "black") +
+    geom_tile(fill = NA) +
+    geom_text(aes(label = value)) +
+    scale_x_discrete(labels = function(x) stringr::str_wrap(x, width = 25)) +
+    scale_y_discrete(expand = c(0, 0), position = "right") +
+    coord_flip() +
+    facet_grid(comparisonType ~ .,
+        scale = "free_y",
+        space = "free_y"
+    ) +
+    theme_cowplot(font_size = 12) +
+    panel_border(color = "black") +    
+    theme(
+        axis.ticks = element_blank(),
+        axis.title = element_blank(),
+        axis.text.y = element_blank(),
+        panel.spacing = unit(-0.1, "lines"),
+        strip.background = element_blank(),
+        axis.line = element_blank(),
+        strip.text.y = element_blank()
+    )
+
+p_safety_main <- plot_grid(
+    p_safety_main_dots +
+    theme(plot.margin = margin(
+        t = 5.5, b = 5.5, l = 5.5, r = -4, unit = "pt")),
+    p_safety_main_numbers +
+    theme(plot.margin = margin(
+        t = 5.5, b = 5.5, l = 0, r = 5.5, unit = "pt")),
+    rel_widths = c(1, 0.65),
+    align = "h",
+    axis = "t",
+    nrow = 1,
+    ncol = 2
+)
+p_safety_main
+
 ```
 
 ### Safety by somatic T-D evidence
@@ -93,8 +223,47 @@ p_safety_by_genetic_constrain <- all_tests %>%
     theme_cowplot(font_size = 12) +
     panel_border(color = "black") +    
     theme(
-        legend.position = c(0.9, 0.9),
+        legend.position = c(0.95, 0.95),
         legend.justification = c(1, 1),
     )
 p_safety_by_genetic_constrain
+```
+
+### RNA specificity
+
+- Tissue Enriched: Genes with an expression level greater than 1 (TPM or FPKM) that also have at least five-fold higher expression levels in a particular tissue compared to all other tissues.
+- Group Enriched: Genes with an expression level greater than 1 (TPM or FPKM) that also have at least five-fold higher expression levels in a group of 2-7 tissues compared to all other tissues, and that are not considered Tissue Enriched.
+- Tissue Enhanced: Genes with an expression level greater than 1 (TPM or FPKM) that also have at least five-fold higher expression levels in a particular tissue compared to the average levels in all other tissues, and that are not considered Tissue Enriched or Group Enriched.
+
+```{r, safety_rna_specificity, cache = TRUE}
+p_safety_rna_specificity <- all_tests %>%
+    filter(predictionType == "metareason") %>%
+    filter(prediction == "Safety_Sideeffects") %>%
+    filter(comparisonType == "rnaSpecificity") %>%
+    mutate(comparison = fct_relevel(comparison,
+    "Low tissue specificity",
+    "Tissue enhanced",
+    "Group enriched",
+    "Tissue enriched")) %>%
+    ggplot(aes(
+        x = comparison,
+        y = estimate,
+        color = prediction)) +
+    geom_hline(aes(yintercept = 1),
+        size = .25,
+        linetype = "dashed"
+    ) +
+    geom_errorbar(aes(ymin = conf.low, ymax = conf.high),
+    width = 0) +
+    geom_point() +
+    scale_color_discrete(name = "Study stop reason") +
+    scale_y_log10(name = "Odds Ratio (log)") +
+    scale_x_discrete(name = "RNA tissue specificity") +
+    theme_cowplot(font_size = 12) +
+    panel_border(color = "black") +    
+    theme(
+        legend.position = c(0.95, 0.95),
+        legend.justification = c(1, 1),
+    )
+p_safety_rna_specificity
 ```

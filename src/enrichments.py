@@ -173,7 +173,7 @@ taDf = (
             (
                 "EFO_0000319",
                 "cardiovascular disease",
-                "Cardiovascular disease"
+                "Other"
             ),
             (
                 "EFO_0009605",
@@ -183,7 +183,7 @@ taDf = (
             (
                 "EFO_0010282",
                 "gastrointestinal disease",
-                "Gastrointenstinal disease"
+                "Other"
             ),
             (
                 "OTAR_0000017",
@@ -198,14 +198,14 @@ taDf = (
             ("EFO_0001379", "endocrine system disease", "Other"),
             ("OTAR_0000010", "respiratory or thoracic disease", "Other"),
             ("EFO_0009690", "urinary system disease",
-             "Renal and urinary disorders"),
+             "Other"),
             ("OTAR_0000006", "musculoskeletal or connective tissue disease",
-             "musculoskeletal and connective tissue disease"),
+             "Other"),
             ("MONDO_0021205", "disease of ear", "Other"),
-            ("EFO_0000540", "immune system disease", "Immune system disease"),
+            ("EFO_0000540", "immune system disease", "Other"),
             ("EFO_0005803", "hematologic disease", "Other"),
             ("EFO_0000618", "nervous system disease",
-             "Nervous system disease"),
+             "Other"),
             ("MONDO_0002025", "psychiatric disorder", "Other"),
             ("MONDO_0024297", "nutritional or metabolic disease", "Other"),
             ("OTAR_0000018",
@@ -242,6 +242,22 @@ targetGC = (
     .withColumn("gc", F.explode("constraint.upperBin6"))
     .select(F.col("id").alias("targetId"),
             F.col("gc").cast("string"))
+)
+
+targetPLI = (
+    target
+    .withColumn("gc", F.explode("constraint"))
+    .filter(F.col("gc.constraintType") == "lof")    
+    .select(F.col("id").alias("targetId"),
+            F.col("gc.score").alias("pLI"))
+    .withColumn("lof_tolerance",
+                F.when(F.col("pLI") > 0.9,
+                       F.lit("LoF intolerant"))
+                .otherwise(
+                    F.when(F.col("pLI") < 0.1, F.lit("LoF tolerant"))
+                    .otherwise(F.lit(None))
+                ))
+    .drop("pLI")
 )
 
 # hpa expression
@@ -299,6 +315,8 @@ clinical = (
     .join(diseaseTA, on="diseaseId", how="left")
     # Target genetic constrain
     .join(targetGC, on="targetId", how="left")
+    # Target lof tolerance
+    .join(targetPLI, on="targetId", how="left")
     # Expression specificity
     .join(hpaExpr, on="targetId", how="left")
     # Datasources and Datatypes
@@ -314,6 +332,7 @@ comparisons = spark.createDataFrame(
           ("datatypeId", "byDatatype"),
           ("taLabelSimple", "ta"),
           ("gc", "geneticConstrain"),
+          ("lof_tolerance", "lof_tolerance"),
           ("rnaDistribution", "rnaDistribution"),
           ("rnaSpecificity", "rnaSpecificity"),
           ("l2g_075", "l2g"),
