@@ -22,18 +22,15 @@ p_safety_by_ta <- all_tests %>%
     coord_flip() +
     facet_grid(. ~ prediction) +
     theme_cowplot(font_size = 12) +
-    panel_border(color = "black") +    
+    panel_border(color = "black") +
     theme(
         axis.title.y = element_blank()
-        # strip.text.y = element_blank(),
-        # strip.background = element_rect(fill = NA),
-        # panel.grid.major.y = element_blank()
     )
 p_safety_by_ta
 ```
 
 ```{r, safety_main, cache = TRUE}
-stars_pval <- function(p_value){
+stars_pval <- function(p_value) {
   unclass(
     symnum(
       p_value,
@@ -48,7 +45,8 @@ stars_pval <- function(p_value){
 toplot_safety_main <- all_tests %>%
     filter(predictionType == "metareason") %>%
     filter(prediction == "Safety_Sideeffects") %>%
-    filter(comparisonType %in% c("ta", "geneticConstrain", "rnaSpecificity", "lof_tolerance")) %>%
+    filter(comparisonType %in% c("ta",
+    "geneticConstrain", "rnaSpecificity", "lof_tolerance", "interactions")) %>%
     mutate(comparison = fct_reorder(comparison, estimate)) %>%
     mutate(comparison = fct_relevel(
         comparison,
@@ -57,6 +55,10 @@ toplot_safety_main <- all_tests %>%
         "Tissue enhanced",
         "Low tissue specificity"
     )) %>%
+    mutate(comparison = fct_relevel(
+        comparison,
+        "greaterThan20",
+        after = Inf)) %>%
     mutate(comparison = fct_recode(comparison,
         "Very high" = "0",
         "High" = "1",
@@ -66,19 +68,34 @@ toplot_safety_main <- all_tests %>%
         "Lowest" = "5"
     )) %>%
     mutate(comparison = fct_recode(comparison,
+        ">20 partners" = "greaterThan20",
+        "11-20 partners" = "from11to20",
+        "1-10 partners" = "from1to10",
+        "None reported" = "none"
+    )) %>%
+    mutate(comparison = fct_recode(comparison,
         "Intolerant (pLI > 0.9)" = "LoF intolerant",
         "Tolerant (pLI < 0.1)" = "LoF tolerant"
     )) %>%
     mutate(comparisonType = fct_recode(
         comparisonType,
         "LoF" = "lof_tolerance",
+        "Interacting proteins" = "interactions",
         "RNA specificity" = "rnaSpecificity",
         "Indication" = "ta",
         "Genetic Constrain (LOEUF bin)" = "geneticConstrain"
     )) %>%
-    mutate(comparisonType = fct_rev(fct_reorder(comparisonType, estimate, max, na.rm = TRUE))) %>%
-    mutate(prediction = fct_recode(prediction, "Trials stopped because of Safety" = "Safety_Sideeffects")) %>%
-    mutate(oddsinterval = paste(round(estimate, digits = 3), " (", round(conf.low, digits = 2), "-", round(conf.high, digits = 2), ")", sep = "")) %>%
+    mutate(comparisonType = fct_rev(
+        fct_reorder(comparisonType, estimate, max, na.rm = TRUE))) %>%
+    mutate(comparisonType = fct_relevel(
+        comparisonType, "Interacting proteins", after = Inf)) %>%
+    mutate(oddsinterval = paste(round(estimate, digits = 3),
+    " (",
+    round(conf.low, digits = 2),
+    "-",
+    round(conf.high, digits = 2),
+    ")",
+    sep = "")) %>%
     mutate(significance = stars_pval(p.value))
 
 p_safety_main_dots <- toplot_safety_main %>%
@@ -91,7 +108,7 @@ p_safety_main_dots <- toplot_safety_main %>%
     width = 0, color = "steelblue", size = 1) +
     geom_point(color = "steelblue", size = 3) +
     scale_y_log10(name = "Odds Ratio (log)", position = "right") +
-    scale_x_discrete(labels = function(x) 
+    scale_x_discrete(labels = function(x)
     stringr::str_wrap(x, width = 25)) +
     coord_flip() +
     facet_grid(comparisonType ~ .,
@@ -111,12 +128,15 @@ p_safety_main_dots <- toplot_safety_main %>%
         strip.background = element_blank(),
         strip.switch.pad.grid = unit(20, "pt")
     )
-    # strip.background = element_rect(fill = NA),
-    # strip.text.y = element_blank()
 
 p_safety_main_numbers <- toplot_safety_main %>%
-    mutate(a = formatC(a, format="d", big.mark=",")) %>%
-    select(comparison, comparisonType, prediction, a, oddsinterval, significance) %>%
+    mutate(a = formatC(a, format = "d", big.mark = ",")) %>%
+    select(comparison,
+    comparisonType,
+    prediction,
+    a,
+    oddsinterval,
+    significance) %>%
     gather(key, value, -comparison, -comparisonType, -prediction) %>%
     mutate(key = fct_recode(key,
     "n" = "a",
@@ -134,7 +154,7 @@ p_safety_main_numbers <- toplot_safety_main %>%
         space = "free_y"
     ) +
     theme_cowplot(font_size = 12) +
-    panel_border(color = "black") +    
+    panel_border(color = "black") +
     theme(
         axis.ticks = element_blank(),
         axis.title = element_blank(),
@@ -189,7 +209,7 @@ p_safety_by_cancer_datasource <- all_tests %>%
         scales = "free_y",
         space = "free_y") +
     theme_cowplot(font_size = 12) +
-    panel_border(color = "black") +    
+    panel_border(color = "black") +
     theme(
         axis.title.y = element_blank(),
         # strip.text.y = element_blank(),
@@ -221,7 +241,7 @@ p_safety_by_genetic_constrain <- all_tests %>%
     scale_y_log10(name = "Odds Ratio (log)") +
     scale_x_discrete(name = "pLOEUF target genetic constrain bin (GnomAD)") +
     theme_cowplot(font_size = 12) +
-    panel_border(color = "black") +    
+    panel_border(color = "black") +
     theme(
         legend.position = c(0.95, 0.95),
         legend.justification = c(1, 1),
@@ -260,7 +280,7 @@ p_safety_rna_specificity <- all_tests %>%
     scale_y_log10(name = "Odds Ratio (log)") +
     scale_x_discrete(name = "RNA tissue specificity") +
     theme_cowplot(font_size = 12) +
-    panel_border(color = "black") +    
+    panel_border(color = "black") +
     theme(
         legend.position = c(0.95, 0.95),
         legend.justification = c(1, 1),

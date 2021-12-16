@@ -3,7 +3,7 @@
 
 ```{r, predictions_dataConfig}
 gs_path <- "gs://open-targets-data-releases/"
-data_release <- "21.06"
+data_release <- "21.11"
 all_evidence_path <- paste(
     gs_path, data_release,
     "/output/etl/parquet/evidence/",
@@ -14,22 +14,30 @@ disease_path <- paste(
     "/output/etl/parquet/diseases/",
     sep = ""
 )
-    
+
 ```
 
 ```{r, predictions_dataStopReasons}
 ## Olesya's predictions for stop reason class
-precitions_path <- "gs://ot-team/dochoa/predictions_stop.tsv"
+precitions_path <- "gs://ot-team/dochoa/stopped_predictions_27.11.csv"
 stop_predictions <- spark_read_csv(
     sc,
     path = precitions_path,
-    delimiter = "\t",
-    header = TRUE,
+    # delimiter = "\t",
+    columns = c(
+        "why_stopped",
+        "phase",
+        "nct_id",
+        "start_date",
+        "status",
+        "last_update_posted_date",
+        "completion_date",
+        "prediction"),
     memory = FALSE
     ) %>%
     filter(is.na(prediction) != TRUE) %>%
-        select("nctid" = "nct_id", prediction) %>%
-        sdf_distinct()
+    select("nctid" = "nct_id", prediction) %>%
+    sdf_distinct()
 ```
 
 ```{r, predictions_dataClinical}

@@ -18,7 +18,7 @@ spark = (
 
 
 platformRelease = "21.09"
-predictionsPath = "gs://ot-team/dochoa/predictions_stop.tsv"
+predictionsPath = "gs://ot-team/dochoa/stopped_predictions_27.11.tsv"
 evdPath = (
     "gs://open-targets-data-releases/" +
     platformRelease +
@@ -34,6 +34,12 @@ targetPath = (
     platformRelease +
     "/output/etl/parquet/targets"
 )
+interactionsPath = (
+    "gs://open-targets-data-releases/" +
+    platformRelease +
+    "/output/etl/parquet/interaction"
+)
+
 hpaPath = "gs://ot-team/dochoa/proteinatlas.json.gz"
 
 # ClinVar evidence we are interested
@@ -50,6 +56,7 @@ clinvarValids = [
 evidence = spark.read.parquet(evdPath)
 disease = spark.read.parquet(diseasePath)
 target = spark.read.parquet(targetPath)
+interaction = spark.read.parquet(interactionsPath)
 hpa = spark.read.json(hpaPath)
 
 # Stop predictions from Olesya
@@ -60,11 +67,25 @@ nonNeutralPredictions = [
     "Business_Administrative",
     "Invalid_Reason"
 ]
+
+stopSchema = StructType([
+    StructField("why_stopped", StringType(), True),
+    StructField("phase", StringType(), True),
+    StructField("nct_id", StringType(), True),
+    StructField("start_date", StringType(), True),
+    StructField("status", StringType(), True),
+    StructField("last_update_posted_date", StringType(), True),
+    StructField("completion_date", StringType(), True),
+    StructField("prediction", StringType(), True)
+])
+
 stopPredictions = (
     spark.read
-    .option("delimiter", "\t")
-    .option("header", True)
-    .csv(predictionsPath)
+    .options(delimiter="\t")
+    .csv(
+        predictionsPath,
+        header=False,
+        schema=stopSchema)
     .filter(F.col("prediction").isNotNull())
     .select(F.col("nct_id").alias("nctid"), "prediction")
     .distinct()
@@ -247,7 +268,7 @@ targetGC = (
 targetPLI = (
     target
     .withColumn("gc", F.explode("constraint"))
-    .filter(F.col("gc.constraintType") == "lof")    
+    .filter(F.col("gc.constraintType") == "lof")
     .select(F.col("id").alias("targetId"),
             F.col("gc.score").alias("pLI"))
     .withColumn("lof_tolerance",
@@ -258,6 +279,38 @@ targetPLI = (
                     .otherwise(F.lit(None))
                 ))
     .drop("pLI")
+)
+
+allInteractions = (
+    interaction
+    .filter(F.col("sourceDatabase") == "intact")
+    .filter(F.col("scoring") > 0.42)
+    .filter(F.col("targetB").isNotNull())
+    .select("targetA", "targetB")
+    .distinct()
+)
+partners = (
+    allInteractions
+    .union(allInteractions
+           .select(F.col("targetA").alias("targetB"),
+                   F.col("targetB").alias("targetA")))
+    .distinct()
+    .groupBy("targetA")
+    .agg(F.count("targetB").alias("partners"))
+    .withColumn("partnersBin",
+                F.when(F.col("partners") > 20,
+                       F.lit("greaterThan20"))
+                .otherwise(F.lit("none")))
+    .withColumn("partnersBin",
+                F.when((F.col("partners") > 10) & (F.col("partners") <= 20),
+                       F.lit("from11to20"))
+                .otherwise(F.col("partnersBin")))
+    .withColumn("partnersBin",
+                F.when((F.col("partners") > 0) & (F.col("partners") <= 10),
+                       F.lit("from1to10"))
+                .otherwise(F.col("partnersBin")))
+    .select(F.col("targetA").alias("targetId"),
+            F.col("partnersBin"))
 )
 
 # hpa expression
@@ -319,6 +372,10 @@ clinical = (
     .join(targetPLI, on="targetId", how="left")
     # Expression specificity
     .join(hpaExpr, on="targetId", how="left")
+    # Physical interaction partners
+    .join(partners, on="targetId", how="left")
+    .withColumn("partnersBin",
+                F.coalesce(F.col("partnersBin"), F.lit("none")))
     # Datasources and Datatypes
     .join(
         associations,
@@ -335,6 +392,7 @@ comparisons = spark.createDataFrame(
           ("lof_tolerance", "lof_tolerance"),
           ("rnaDistribution", "rnaDistribution"),
           ("rnaSpecificity", "rnaSpecificity"),
+          ("partnersBin", "interactions"),
           ("l2g_075", "l2g"),
           ("l2g_05", "l2g"),
           ("l2g_025", "l2g"),

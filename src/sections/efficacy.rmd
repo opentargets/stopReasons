@@ -8,7 +8,6 @@ all_aggregations <- spark_read_parquet(sc, aggregations_path) %>%
     mutate(d = total - b - c + a) %>%
     collect()
 
-
 all_tests <- bind_cols(
     all_aggregations,
     all_aggregations %>%
@@ -16,7 +15,6 @@ all_tests <- bind_cols(
         rowwise() %>%
         do(broom::tidy(fisher.test(matrix(c(.$a, .$b, .$c, .$d), nrow = 2))))
 )
-    
 ```
 
 ### Stop reasons by datatype
