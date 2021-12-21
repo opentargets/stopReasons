@@ -1,0 +1,21 @@
+name: stopReasons
+channels:
+  - conda-forge
+dependencies:
+  - python=3.8
+  - pip
+  - pyspark==3.2.0
+  - python-language-server
+  - r-base=4.1
+  - r-devtools
+  - r-languageserver
+  - r-rmarkdown
+  - r-viridis
+  - r-lintr
+  - r-tidyverse
+  - r-sparklyr
+  - r-lubridate
+  - r-ggdendro
+  - r-ggsci
+  - r-cowplot
+  - radian
