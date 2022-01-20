@@ -145,6 +145,7 @@ data_to_plot <- stop_predictions %>%
     # filter(year(start_date) > 1990) %>%
     mutate(year = year(start_date)) %>%
     mutate(nicename = fct_rev(fct_infreq(nicename))) %>%
+    mutate(nicename = fct_relevel(nicename, "Unclassified", after = Inf)) %>%
     ## adding TA bit
     left_join(stop_by_ta, by = "nct_id")
 
