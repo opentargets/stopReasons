@@ -26,19 +26,27 @@ lazyLoad(smart_load_name(dir, "predictions_by_phase"))
 theme_set(theme_cowplot(font_size = 9))
 
 p_predictions <- plot_grid(
-    p_predictions_by_date,
-    p_predictions_by_phase,
+    p_supertile,
+    plot_grid(
+        p_predictions_by_phase,
+        p_byta_highlights,
+        NULL,
+        align = "v",
+        rel_widths = c(0.425, 0.425, 0.15),
+        labels = c("b", "c"),
+        nrow = 1),
     nrow = 2,
     scale = 0.98,
     align = "v",
     axis = "r",
-    rel_heights = c(1, 1),
-    labels = c("a", "b")
+    rel_heights = c(1, 0.7),
+    labels = c("a", NULL)
 )
+p_predictions
 
 outputs <- c(
-    "./docs/figures/figurePredictions.png",
-    "./docs/figures/figurePredictions.pdf"
+    "../docs/figures/figurePredictions.png",
+    "../docs/figures/figurePredictions.pdf"
 )
 
 lapply(outputs, function(x) {
@@ -49,7 +57,7 @@ lapply(outputs, function(x) {
         ncol = 1,
         nrow = 1,
         base_height = 9,
-        base_width = 9
+        base_width = 14
     )
 })
 
@@ -72,6 +80,7 @@ p_efficacy <- plot_grid(
     rel_heights = c(1, 0.6),
     labels = c("a", "b")
 )
+p_efficacy
 
 outputs <- c(
     "./docs/figures/figureEfficacy.png",

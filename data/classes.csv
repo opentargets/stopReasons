@@ -1,0 +1,19 @@
+class,nicename,meta
+Insufficient_Enrollment,Insufficient enrollment,Neutral
+Business_Administrative,Business or administrative,Suspicious
+Negative,Negative,Negative
+Logistics_Resources,Logistics or resources,Neutral
+Study_Design,Study design,Neutral
+Invalid_Reason,Invalid reason, Invalid
+Study_Staff_Moved,Study staff moved,Neutral
+Covid19,COVID-19,Neutral
+Another_Study,Another study,Neutral
+Safety_Sideeffects,Safety or side effects,Safety
+Regulatory,Regulatory,Neutral
+No_Context,No context,Neutral
+Interim_Analysis,Interim analysis,Neutral
+Endpoint_Met,Met endpoint,Neutral
+Insufficient_Data,Insufficient data,Neutral
+Ethical_Reason,Ethical reason,Neutral
+Unclassified,Unclassified,Unclassified
+Success,Success,Success
