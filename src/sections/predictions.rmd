@@ -140,39 +140,6 @@ stop_by_ta <- clinical %>%
 
 ```{r, predictions_by_date, cache = TRUE, fig.width = 9, fig.height = 7}
 
-# stopped_trials <- clinical %>%
-#     filter(!is.na(prediction)) %>%
-#     select(
-#         nctid, studyStartDate, prediction,
-#         clinicalStatus, clinicalPhase
-#     ) %>%
-#     sdf_distinct() %>%
-#     collect()
-
-
-# p_study_count <- stop_predictions %>%
-#     filter(start_date <= today()) %>%
-#     filter(year(start_date) > 1990) %>%
-#     group_by(prediction) %>%
-#     summarise(count = n()) %>%
-#     mutate(prediction = fct_reorder(prediction, count)) %>%
-#     mutate(comparison = "Total studies") %>%
-#     ggplot(aes(x = prediction, y = count)) +
-#     geom_bar(stat = "identity", fill = "grey40") +
-#     coord_flip() +
-#     facet_grid(~comparison) +
-#     theme_cowplot(font_size = 12) +
-#     theme(
-#         axis.ticks.y = element_blank(),
-#         axis.text.y = element_blank(),
-#         axis.line = element_blank(),
-#         strip.background = element_blank(),
-#         panel.border = element_blank(),
-#         axis.title = element_blank()
-#     )
-# p_study_count
-
-
 data_to_plot <- stop_predictions %>%
     # filter(year(start_date) <= 2021) %>%
     # filter(year(start_date) > 1990) %>%
@@ -184,7 +151,10 @@ data_to_plot <- stop_predictions %>%
 stop_to_plot <- bind_rows(
     data_to_plot %>%
         mutate(year = replace_na(year, "Other")) %>%
-        mutate(year = fct_other(as.factor(year), keep = as.character(seq(1995, 2021)))) %>%
+        mutate(year = fct_other(
+            as.factor(year),
+            keep = as.character(seq(1995, 2021))
+        )) %>%
         group_by(grouping = year, nicename) %>%
         summarise(count = n(), .groups = "drop") %>%
         complete(grouping, nicename) %>%
@@ -241,11 +211,25 @@ p_meta_tiles <- data_to_plot %>%
     ggplot(aes(x = "this", y = nicename, fill = meta)) +
     geom_tile(color = "white", size = .5) +
     scale_x_discrete(expand = c(0, 0)) +
-    scale_fill_manual(name = "Reason implications", 
-    # values = rev(colorRampPalette(rev(RColorBrewer::brewer.pal(11,'Spectral')))(7)),
-    # values = c("#9E0142", "#E95D46", "#FDBE6F", "#ffff3e", "#BEE4A0", "#54AEAD", "#5E4FA2"),
-    values = c("#E64B35FF", "#F39B7FFF", "#533377", "#3C5488FF", "#00a048", "#815d34", "grey30"),
-    breaks = c("Negative", "Safety", "Suspicious", "Neutral", "Success", "Invalid", "Unclassified")) +
+    scale_fill_manual(name = "Reason implications",
+    values = c(
+        "#E64B35FF",
+        "#F39B7FFF",
+        "#533377",
+        "#3C5488FF",
+        "#00a048",
+        "#815d34",
+        "grey30"
+    ),
+    breaks = c(
+        "Negative",
+        "Safety",
+        "Suspicious",
+        "Neutral",
+        "Success",
+        "Invalid",
+        "Unclassified"
+    )) +
     theme_cowplot(font_size = 12) +
     facet_grid(~fake, scales = "free", space = "free") +
     theme(
@@ -268,7 +252,6 @@ p_predictions_tiles <- stop_to_plot %>%
         name = "Stopped trials",
         na.value = "grey70",
         values = viridisLite::viridis(length(levels(stop_to_plot$interval))),
-        # values = colorRampPalette(rev(RColorBrewer::brewer.pal(11,'Spectral')))(length(levels(stop_to_plot$interval))),
         breaks = levels(stop_to_plot$interval)
     ) +
     # scale_fill_viridis_b(na.value = "grey90") +
@@ -287,8 +270,16 @@ p_predictions_tiles <- stop_to_plot %>%
 legend_main <- get_legend(p_predictions_tiles)
 legend_meta <- get_legend(p_meta_tiles)
 p_supertile <- plot_grid(
-    p_meta_tiles + theme(legend.position = "none", plot.margin = margin(l = 30, t = 5, r = 0, unit = "pt")),
-    p_predictions_tiles + theme(legend.position = "none", axis.text.y = element_blank()),
+    p_meta_tiles +
+    theme(
+        legend.position = "none",
+        plot.margin = margin(l = 30, t = 5, r = 0, unit = "pt")
+    ),
+    p_predictions_tiles +
+    theme(
+        legend.position = "none",
+        axis.text.y = element_blank()
+    ),
     plot_grid(legend_meta, legend_main, nrow = 2),
     # p_study_count,
     nrow = 1,
@@ -318,7 +309,13 @@ p_predictions_by_phase <- data_to_plot %>%
         "Safety_Sideeffects",
         "Negative", "Study_Staff_Moved"
     )) %>%
-    ggplot(aes(x = str_wrap(phase, width = 10), y = stopRatio, fill = fct_rev(prediction))) +
+    ggplot(
+        aes(
+            x = str_wrap(phase, width = 10),
+            y = stopRatio,
+            fill = fct_rev(prediction)
+        )
+    ) +
     # geom_area(alpha = 0.7, size = .25, color = "black") +
     geom_bar(
         stat = "identity",
@@ -333,7 +330,7 @@ p_predictions_by_phase <- data_to_plot %>%
     scale_x_discrete(
         name = "Clinical Phase"
     ) +
-    scale_fill_manual(name = "Stop reason", 
+    scale_fill_manual(name = "Stop reason",
     values = c("#E64B35FF", "#F39B7FFF", "#3C5488FF"),
     breaks = c("Negative", "Safety_Sideeffects", "Study_Staff_Moved"),
     labels = c("Negative", "Safety or side effects", "Study or staff moved")) +
@@ -391,7 +388,7 @@ p_byta_highlights <- byta_data2plot %>%
     filter(nicename != "Negative") %>%
     ggplot(aes(x = grouping, y = ratio, fill = nicename)) +
     geom_bar(stat = "identity", position = "dodge", color = "black") +
-    scale_fill_manual(name = "Stop reason", 
+    scale_fill_manual(name = "Stop reason",
     values = c("#E64B35FF", "#F39B7FFF", "#3C5488FF"),
     breaks = c("Negative", "Safety or side effects", "COVID-19"),
     labels = c("Negative", "Safety or side effects", "COVID-19")) +
@@ -535,7 +532,9 @@ test <- clinical %>%
         maxPhase = max(clinicalPhase),
         maxStopPhase = max(clinicalPhase[!is.na(why_stopped)]),
         mostRecent = as.Date(max(studyStartDate, na.rm = TRUE)),
-        mostRecentStopped = as.Date(max(studyStartDate[!is.na(why_stopped)], na.rm = TRUE)),
+        mostRecentStopped = as.Date(
+            max(studyStartDate[!is.na(why_stopped)], na.rm = TRUE)
+        ),
     ) %>%
     filter(maxStopPhase > 0)
 
@@ -551,5 +550,4 @@ data_to_plot %>%
         medianDeltaPhase = mean(deltaPhase, na.rm = TRUE),
         medianDeltaStart = mean(deltaStart, na.rm = TRUE)
     )
-
 ```
