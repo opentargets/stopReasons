@@ -21,28 +21,10 @@ scientific_10 <- function(x) {
 ######################
 
 lazyLoad(smart_load_name(dir, "predictions_by_date"))
-lazyLoad(smart_load_name(dir, "predictions_by_phase"))
 
 theme_set(theme_cowplot(font_size = 9))
 
-p_predictions <- plot_grid(
-    p_supertile,
-    plot_grid(
-        p_predictions_by_phase,
-        p_byta_highlights,
-        NULL,
-        align = "v",
-        rel_widths = c(0.425, 0.425, 0.15),
-        labels = c("b", "c"),
-        nrow = 1),
-    nrow = 2,
-    scale = 0.98,
-    align = "v",
-    axis = "r",
-    rel_heights = c(1, 0.7),
-    labels = c("a", NULL)
-)
-p_predictions
+p_supertile
 
 outputs <- c(
     "./docs/figures/figurePredictions.png",
@@ -52,7 +34,7 @@ outputs <- c(
 lapply(outputs, function(x) {
     save_plot(
         filename = x,
-        plot = p_predictions,
+        plot = p_supertile,
         scale = 0.95,
         ncol = 1,
         nrow = 1,
@@ -65,8 +47,7 @@ lapply(outputs, function(x) {
 ## Efficacy figure
 ####################
 
-lazyLoad(smart_load_name(dir, "efficacy_meta_stop_by_datatype"))
-lazyLoad(smart_load_name(dir, "efficacy_gwasL2Gscore"))
+lazyLoad(smart_load_name(dir, "efficacy_main"))
 
 theme_set(theme_cowplot(font_size = 9))
 
