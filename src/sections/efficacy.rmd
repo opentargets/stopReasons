@@ -19,11 +19,245 @@ all_tests <- bind_cols(
 
 ### Stop reasons by datatype
 
+```{r, efficacy_main, cache = TRUE}
+stars_pval <- function(p_value) {
+  unclass(
+    symnum(
+      p_value,
+      corr = FALSE,
+      na = FALSE,
+      cutpoints = c(0, 0.0001, 0.001, 0.01, 0.05,  1),
+      symbols = c("****", "***", "**", "*",  "ns")
+    )
+  )
+}
+
+toplot_efficacy_main <- all_tests %>%
+    filter(predictionType %in% c("metareason", "clinical", "stopStatus")) %>%
+    filter(comparison %in% c("animal_model", "genetic_association")) %>%
+    filter(comparisonType == "byDatatype") %>%
+    mutate(predictionType = fct_relevel(
+        predictionType,
+        "clinical",
+        "stopStatus",
+        "metareason"
+    )) %>%
+    mutate(predictionType = fct_recode(predictionType,
+        "All studies" = "clinical",
+        "Stopped studies" = "stopStatus",
+        "Reason implication" = "metareason"
+    )) %>%
+    mutate(prediction = fct_reorder(prediction, estimate, median)) %>%
+    mutate(prediction = fct_recode(prediction,
+        "Suspicious" = "Business_Administrative",
+        "Invalid" = "Invalid_Reason",
+        "Safety" = "Safety_Sideeffects",
+        "Negative" = "Negative",
+        "Neutral" = "Neutral",
+        "Success" = "Success"
+    )) %>%
+    mutate(prediction = fct_relevel(prediction, "Phase IV", after = Inf)) %>%
+    mutate(oddsinterval = paste(
+        round(estimate, digits = 2),
+        " (",
+        round(conf.low, digits = 2),
+        "-",
+        round(conf.high, digits = 2),
+        ")",
+    sep = "")) %>%
+    mutate(significance = stars_pval(p.value))
+
+p_efficacy_main_dots <- toplot_efficacy_main %>%
+    filter(comparison == "genetic_association") %>%
+    ggplot(aes(x = prediction, y = estimate)) +
+    geom_hline(aes(yintercept = 1),
+        size = .25,
+        linetype = "dashed"
+    ) +
+    geom_errorbar(
+        aes(ymin = conf.low, ymax = conf.high),
+        width = 0,
+        color = "steelblue",
+        size = 1) +
+    geom_point(color = "steelblue", size = 3) +
+    scale_y_log10(name = "Odds Ratio (log)", position = "right") +
+    scale_x_discrete(labels = function(x)
+    stringr::str_wrap(x, width = 25)) +
+    coord_flip() +
+    facet_grid(predictionType ~ .,
+        scale = "free_y",
+        space = "free_y",
+        switch = "y"
+    ) +
+    theme_cowplot(font_size = 12) +
+    panel_border(color = "black") +
+    theme(
+        axis.title.y = element_blank(),
+        # strip.text.y = element_blank(),
+        axis.line = element_blank(),
+        # panel.spacing = unit(0, "lines"),
+        panel.spacing = unit(-0.1, "lines"),
+        strip.placement = "outside",
+        strip.background = element_blank(),
+        strip.switch.pad.grid = unit(20, "pt")
+    )
+
+p_efficacy_main_numbers <- toplot_efficacy_main %>%
+    filter(comparison == "genetic_association") %>%
+    mutate(a = formatC(a, format = "d", big.mark = ",")) %>%
+    select(
+        predictionType,
+        prediction,
+        a,
+        oddsinterval,
+        significance
+    ) %>%
+    gather(key, value, -predictionType, -prediction) %>%
+    mutate(key = fct_recode(
+        key,
+        "n" = "a",
+        "OR (95% CI)" = "oddsinterval",
+        "Significance" = "significance"
+    )) %>%
+    ggplot(aes(x = prediction, y = key)) +
+    # geom_tile(fill = NA, color = "black") +
+    geom_tile(fill = NA) +
+    geom_text(aes(label = value)) +
+    scale_x_discrete(labels = function(x) stringr::str_wrap(x, width = 25)) +
+    scale_y_discrete(expand = c(0, 0), position = "right") +
+    coord_flip() +
+    facet_grid(predictionType ~ .,
+        scale = "free_y",
+        space = "free_y"
+    ) +
+    theme_cowplot(font_size = 12) +
+    panel_border(color = "black") +
+    theme(
+        axis.ticks = element_blank(),
+        axis.title = element_blank(),
+        axis.text.y = element_blank(),
+        panel.spacing = unit(-0.1, "lines"),
+        strip.background = element_blank(),
+        axis.line = element_blank(),
+        strip.text.y = element_blank()
+    )
+
+p_efficacy_main <- plot_grid(
+    p_efficacy_main_dots +
+    theme(plot.margin = margin(
+        t = 5.5, b = 5.5, l = 5.5, r = -4, unit = "pt")),
+    p_efficacy_main_numbers +
+    theme(plot.margin = margin(
+        t = 5.5, b = 5.5, l = 0, r = 5.5, unit = "pt")),
+    rel_widths = c(1, 0.9),
+    align = "h",
+    axis = "t",
+    nrow = 1,
+    ncol = 2
+)
+p_efficacy_main
+
+p_animal_main_dots <- toplot_efficacy_main %>%
+    filter(comparison == "animal_model") %>%
+    filter(prediction != "Success") %>%
+    ggplot(aes(x = prediction, y = estimate)) +
+    geom_hline(aes(yintercept = 1),
+        size = .25,
+        linetype = "dashed"
+    ) +
+    geom_errorbar(
+        aes(ymin = conf.low, ymax = conf.high),
+        width = 0,
+        color = "steelblue",
+        size = 1) +
+    geom_point(color = "steelblue", size = 3) +
+    scale_y_log10(name = "Odds Ratio (log)", position = "right") +
+    scale_x_discrete(labels = function(x)
+    stringr::str_wrap(x, width = 25)) +
+    coord_flip() +
+    facet_grid(predictionType ~ .,
+        scale = "free_y",
+        space = "free_y",
+        switch = "y"
+    ) +
+    theme_cowplot(font_size = 12) +
+    panel_border(color = "black") +
+    theme(
+        #Removing axis
+        axis.ticks = element_blank(),
+        axis.title.y = element_blank(),
+        axis.text.y = element_blank(),
+        panel.spacing = unit(-0.1, "lines"),
+        strip.background = element_blank(),
+        axis.line = element_blank(),
+        strip.text.y = element_blank()
+
+    )
+
+p_animal_main_numbers <- toplot_efficacy_main %>%
+    filter(comparison == "animal_model") %>%
+    filter(prediction != "Success") %>%
+    mutate(a = formatC(a, format = "d", big.mark = ",")) %>%
+    select(
+        predictionType,
+        prediction,
+        a,
+        oddsinterval,
+        significance
+    ) %>%
+    gather(key, value, -predictionType, -prediction) %>%
+    mutate(key = fct_recode(
+        key,
+        "n" = "a",
+        "OR (95% CI)" = "oddsinterval",
+        "Significance" = "significance"
+    )) %>%
+    ggplot(aes(x = prediction, y = key)) +
+    # geom_tile(fill = NA, color = "black") +
+    geom_tile(fill = NA) +
+    geom_text(aes(label = value)) +
+    scale_x_discrete(labels = function(x) stringr::str_wrap(x, width = 25)) +
+    scale_y_discrete(expand = c(0, 0), position = "right") +
+    coord_flip() +
+    facet_grid(predictionType ~ .,
+        scale = "free_y",
+        space = "free_y"
+    ) +
+    theme_cowplot(font_size = 12) +
+    panel_border(color = "black") +
+    theme(
+        axis.ticks = element_blank(),
+        axis.title = element_blank(),
+        axis.text.y = element_blank(),
+        panel.spacing = unit(-0.1, "lines"),
+        strip.background = element_blank(),
+        axis.line = element_blank(),
+        strip.text.y = element_blank()
+    )
+
+p_animal_main <- plot_grid(
+    p_animal_main_dots +
+    theme(plot.margin = margin(
+        t = 5.5, b = 5.5, l = 5.5, r = -4, unit = "pt")),
+    p_animal_main_numbers +
+    theme(plot.margin = margin(
+        t = 5.5, b = 5.5, l = 0, r = 5.5, unit = "pt")),
+    rel_widths = c(1, 1.12),
+    align = "h",
+    axis = "t",
+    nrow = 1,
+    ncol = 2
+)
+p_animal_main
+
+
+```
+
 ```{r, efficacy_meta_stop_by_datatype, cache = TRUE}
 
 p_meta_stop_by_datatype <- all_tests %>%
     filter(predictionType %in% c("metareason", "clinical", "stopStatus")) %>%
-    filter(comparison %in% c("animal_model","genetic_association")) %>%
+    filter(comparison %in% c("animal_model", "genetic_association")) %>%
     filter(comparisonType == "byDatatype") %>%
     mutate(predictionType = fct_relevel(predictionType,
     "clinical", "stopStatus", "metareason")) %>%
@@ -44,7 +278,7 @@ p_meta_stop_by_datatype <- all_tests %>%
         scales = "free_y",
         space = "free_y") +
     theme_cowplot(font_size = 12) +
-    panel_border(color = "black") +    
+    panel_border(color = "black") +
     theme(
         axis.title.y = element_blank(),
         # strip.text.y = element_blank(),
@@ -59,7 +293,7 @@ p_meta_stop_by_datatype
 ```{r, efficacy_meta_stop_by_datatype_granular}
 p_meta_stop_by_dt_granular <- all_tests %>%
     filter(predictionType %in% c("reason", "clinical", "stopStatus")) %>%
-    filter(comparison %in% c("animal_model","genetic_association")) %>%
+    filter(comparison %in% c("animal_model", "genetic_association")) %>%
     filter(comparisonType == "byDatatype") %>%
     mutate(predictionType = fct_relevel(predictionType,
     "clinical", "stopStatus", "reason")) %>%
@@ -80,7 +314,7 @@ p_meta_stop_by_dt_granular <- all_tests %>%
         scales = "free_y",
         space = "free_y") +
     theme_cowplot(font_size = 12) +
-    panel_border(color = "black") +    
+    panel_border(color = "black") +
     theme(
         axis.title.y = element_blank(),
         # strip.text.y = element_blank(),
@@ -96,7 +330,7 @@ p_meta_stop_by_dt_granular
 
 ```{r, efficacy_meta_by_genetic_ds}
 genetic_ds <- c(
-    "clingen", 
+    "clingen",
     "eva",
     # "gene2phenotype",
     "genomics_england",
@@ -128,7 +362,7 @@ p_efficacy_meta_by_genetic_ds <- all_tests %>%
         scales = "free_y",
         space = "free_y") +
     theme_cowplot(font_size = 12) +
-    panel_border(color = "black") +    
+    panel_border(color = "black") +
     theme(
         axis.title.y = element_blank(),
         # strip.text.y = element_blank(),
@@ -158,13 +392,13 @@ p_efficacy_gwas_l2g_score <- all_tests %>%
     scale_y_log10(name = "Odds Ratio (log)") +
     scale_x_discrete(name = "GWAS predicted causality (max L2G)") +
     theme_cowplot(font_size = 12) +
-    panel_border(color = "black") +    
+    panel_border(color = "black") +
     theme(
         # strip.text.y = element_blank(),
         strip.background = element_rect(fill = NA),
         panel.grid.major.y = element_blank(),
-        legend.position = c(0.1,0.1),
-        legend.justification = c(0,0)
+        legend.position = c(0.1, 0.1),
+        legend.justification = c(0, 0)
     )
 p_efficacy_gwas_l2g_score
 ```

@@ -71,20 +71,18 @@ lazyLoad(smart_load_name(dir, "efficacy_gwasL2Gscore"))
 theme_set(theme_cowplot(font_size = 9))
 
 p_efficacy <- plot_grid(
-    p_meta_stop_by_datatype,
-    p_efficacy_gwas_l2g_score,
-    nrow = 2,
-    scale = 0.98,
-    align = "v",
-    axis = "l",
-    rel_heights = c(1, 0.6),
+    p_efficacy_main,
+    p_animal_main,
+    rel_widths = c(1, 0.8),
+    nrow = 1,
     labels = c("a", "b")
 )
 p_efficacy
 
+
 outputs <- c(
-    "./docs/figures/figureEfficacy.png",
-    "./docs/figures/figureEfficacy.pdf"
+    "../docs/figures/figureEfficacy.png",
+    "../docs/figures/figureEfficacy.pdf"
 )
 
 lapply(outputs, function(x) {
@@ -94,8 +92,8 @@ lapply(outputs, function(x) {
         scale = 0.95,
         ncol = 1,
         nrow = 1,
-        base_height = 9,
-        base_width = 6
+        base_height = 7,
+        base_width = 13
     )
 })
 
