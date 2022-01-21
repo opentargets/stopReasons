@@ -213,3 +213,30 @@ lapply(outputs, function(x) {
         base_width = 12
     )
 })
+
+#####################################
+## Supplementary figure: efficacy by L2G
+#####################################
+
+lazyLoad(smart_load_name(dir, "efficacy_gwasL2Gscore"))
+
+theme_set(theme_cowplot(font_size = 9))
+
+p_efficacy_gwas_l2g_score
+
+outputs <- c(
+    "./docs/figures/efficacy_l2g.png",
+    "./docs/figures/efficacy_l2g.pdf"
+)
+
+lapply(outputs, function(x) {
+    save_plot(
+        filename = x,
+        plot = p_efficacy_gwas_l2g_score,
+        scale = 0.95,
+        ncol = 1,
+        nrow = 1,
+        base_height = 6,
+        base_width = 6
+    )
+})

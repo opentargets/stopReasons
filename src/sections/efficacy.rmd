@@ -448,6 +448,11 @@ p_efficacy_meta_by_genetic_ds
 p_efficacy_gwas_l2g_score <- all_tests %>%
     filter(comparisonType == "l2g") %>%
     filter(prediction %in% c("Phase III+", "Negative")) %>%
+    mutate(prediction = fct_recode(
+        prediction,
+        "Stopped - negative reason" = "Negative",
+        "All phase III+" = "Phase III+"
+    )) %>%
     mutate(comparison = str_replace(comparison, "l2g_", ">")) %>%
     ggplot(aes(x = comparison, y = estimate, color = prediction)) +
     geom_hline(aes(yintercept = 1),
@@ -457,15 +462,17 @@ p_efficacy_gwas_l2g_score <- all_tests %>%
     geom_errorbar(aes(ymin = conf.low, ymax = conf.high),
     width = 0) +
     geom_point() +
-    scale_y_log10(name = "Odds Ratio (log)") +
-    scale_x_discrete(name = "GWAS predicted causality (max L2G)") +
+    scale_color_discrete(name = "Clinical Studies") +
+    scale_y_log10(name = "Odds Ratio") +    
+    scale_x_discrete(name = "GWAS predicted causality (max L2G score)") +
     theme_cowplot(font_size = 12) +
     panel_border(color = "black") +
     theme(
         # strip.text.y = element_blank(),
         strip.background = element_rect(fill = NA),
         panel.grid.major.y = element_blank(),
-        legend.position = c(0.1, 0.1),
+        legend.position = c(0, 0),
+        legend.margin = margin(l = 10, b = 10, unit = "pt"),
         legend.justification = c(0, 0)
     )
 p_efficacy_gwas_l2g_score
