@@ -240,3 +240,30 @@ lapply(outputs, function(x) {
         base_width = 6
     )
 })
+
+#####################################
+## Supplementary figure: somatic safety
+#####################################
+
+lazyLoad(smart_load_name(dir, "safety_by_cancer_datasource"))
+
+theme_set(theme_cowplot(font_size = 9))
+
+p_safety_by_cancer_datasource
+
+outputs <- c(
+    "./docs/figures/safety_somatic.png",
+    "./docs/figures/safety_somatic.pdf"
+)
+
+lapply(outputs, function(x) {
+    save_plot(
+        filename = x,
+        plot = p_safety_by_cancer_datasource,
+        scale = 0.95,
+        ncol = 1,
+        nrow = 1,
+        base_height = 6,
+        base_width = 6
+    )
+})
