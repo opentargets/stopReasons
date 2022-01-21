@@ -524,31 +524,4 @@ p_predictions_stopped_by_ta <- stop_by_ta %>%
     )
 p_predictions_stopped_by_ta
 
-
-test <- clinical %>%
-    group_by(diseaseId, drugId) %>%
-    summarise(
-        trials = n_distinct(nct_id),
-        stopped = n_distinct(nct_id[!is.na(why_stopped)]),
-        maxPhase = max(clinicalPhase),
-        maxStopPhase = max(clinicalPhase[!is.na(why_stopped)]),
-        mostRecent = as.Date(max(studyStartDate, na.rm = TRUE)),
-        mostRecentStopped = as.Date(
-            max(studyStartDate[!is.na(why_stopped)], na.rm = TRUE)
-        ),
-    ) %>%
-    filter(maxStopPhase > 0)
-
-data_to_plot %>%
-    filter(!is.na(drugId)) %>%
-    filter(!is.na(diseaseId)) %>%
-    select(diseaseId, drugId, prediction, start_date) %>%
-    left_join(test, by = c("drugId", "diseaseId")) %>%
-    mutate(deltaPhase = maxPhase - maxStopPhase) %>%
-    mutate(deltaStart = mostRecent - mostRecentStopped) %>%
-    group_by(prediction) %>%
-    summarise(
-        medianDeltaPhase = mean(deltaPhase, na.rm = TRUE),
-        medianDeltaStart = mean(deltaStart, na.rm = TRUE)
-    )
 ```
