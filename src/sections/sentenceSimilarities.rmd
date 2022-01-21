@@ -22,24 +22,32 @@ dend_data <- dendro_data(dend, type = "rectangle")
 freq <- read_csv(file = "../data/frequencies.csv",
                  col_names = FALSE) %>%
     setNames(c("class", "freq", "category")) %>%
-    mutate(class = str_replace(class, "^_", "")) %>%
-    mutate(class = str_replace(class, ":\\s\\d+", "")) %>%
-    mutate(class = str_replace(class, " ", "_")) %>%
-    mutate(class = fct_relevel(class, dend_data$labels$label))
+        mutate(class = str_replace(class, "^_", "")) %>%
+        mutate(class = str_replace(class, ":\\s\\d+", "")) %>%
+        mutate(class = str_replace_all(class, "_", " ")) %>%
+        mutate(class = str_to_sentence(class)) %>%
+        mutate(class = fct_relevel(
+            class,
+            dend_data$labels$label %>%
+                str_replace_all("_", " ") %>%
+                str_to_sentence()
+        )) %>%
+        mutate(class = fct_recode(class, "Not a clinical trial" = "Not a clinical t"))
 ```
 
-```{r, simDendroPlot}
+```{r, simDendroPlot, cache = TRUE}
 # Class frequencies
 p_dendro <- ggplot(dend_data$segments) +
     geom_segment(aes(x = x, y = y, xend = xend, yend = yend)) +
     ## geom_text(data = dend_data$labels, aes(x, y, label = label),
     ##           hjust = 0, size = 3)+
-    scale_y_reverse() +
+    scale_y_reverse(expand = c(0,0)) +
     scale_x_continuous(expand = c(0, 0.7)) +
     coord_flip() +
     theme(axis.text = element_blank(),
           axis.ticks = element_blank(),
           axis.title = element_blank(),
+          axis.line = element_blank(),
           panel.background = element_blank())
 p_heatmap <- ggplot(freq) +
     geom_tile(aes(x = "freq", y = class, fill = freq), color = "grey10") +
@@ -49,38 +57,32 @@ p_heatmap <- ggplot(freq) +
     theme(axis.text = element_blank(),
           axis.ticks = element_blank(),
           axis.title = element_blank(),
+          axis.line = element_blank(),
           panel.background = element_blank(),
           legend.position = "none")
-p_categories <- ggplot(freq) +
+p_categories <- freq %>%
+    ggplot() +
     geom_tile(aes(x = "category", y = class, fill = category),
-    color = "grey10") +
-    scale_fill_nejm() +
+        color = "grey10"
+    ) +
+    scale_y_discrete(position = "right") +
+    scale_fill_nejm(name = "Implication") +
     scale_x_discrete(expand = c(0, 0)) +
-    theme(axis.text = element_blank(),
+    theme(axis.text.x = element_blank(),
           axis.ticks = element_blank(),
           axis.title = element_blank(),
+          axis.line = element_blank(),
           legend.title = element_text(size = 10),
           legend.text = element_text(size = 9),
           legend.key.size = unit(0.8, "line"),
           panel.background = element_blank())
-p_legend_categories <- get_legend(p_categories)
-p_labels <- ggplot(freq) +
-    geom_point(aes(x = 0, y = class)) +
-    scale_x_continuous(expand = c(0, 0)) +
-    scale_y_discrete(position = "right") +
-    theme(
-        axis.text.x = element_blank(),
-        axis.text.y = element_text(color = "black"),
-        axis.ticks = element_blank(),
-        axis.title = element_blank(),
-        panel.background = element_blank()
-    )
-# Compose plot
-plot_grid(p_dendro,
-          p_heatmap,
-          p_categories + theme(legend.position = "none"),
-          p_labels,
-          p_legend_categories,
-          rel_widths = c(2, 0.5, 0.5, 0.75, 1),
-          nrow = 1)
+
+plot_grid(
+    p_dendro,
+    p_heatmap,
+    p_categories,
+    rel_widths = c(1, 0.2, 0.6),
+    nrow = 1
+)
+
 ```

@@ -45,8 +45,8 @@ p_predictions <- plot_grid(
 p_predictions
 
 outputs <- c(
-    "../docs/figures/figurePredictions.png",
-    "../docs/figures/figurePredictions.pdf"
+    "./docs/figures/figurePredictions.png",
+    "./docs/figures/figurePredictions.pdf"
 )
 
 lapply(outputs, function(x) {
@@ -81,8 +81,8 @@ p_efficacy
 
 
 outputs <- c(
-    "../docs/figures/figureEfficacy.png",
-    "../docs/figures/figureEfficacy.pdf"
+    "./docs/figures/figureEfficacy.png",
+    "./docs/figures/figureEfficacy.pdf"
 )
 
 lapply(outputs, function(x) {
@@ -121,5 +121,40 @@ lapply(outputs, function(x) {
         nrow = 1,
         base_height = 7,
         base_width = 9
+    )
+})
+
+
+#####################################
+## Supplementary figure: dendrogram
+#####################################
+
+lazyLoad(smart_load_name(dir, "simDendroPlot"))
+
+theme_set(theme_cowplot(font_size = 9))
+
+p_dend <- plot_grid(
+    p_dendro,
+    p_heatmap,
+    p_categories,
+    rel_widths = c(1, 0.2, 0.6),
+    nrow = 1
+)
+p_dend
+
+outputs <- c(
+    "./docs/figures/figureDendro.png",
+    "./docs/figures/figureDendro.pdf"
+)
+
+lapply(outputs, function(x) {
+    save_plot(
+        filename = x,
+        plot = p_dend,
+        scale = 0.95,
+        ncol = 1,
+        nrow = 1,
+        base_height = 9,
+        base_width = 7
     )
 })
