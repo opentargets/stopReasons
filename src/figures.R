@@ -158,3 +158,58 @@ lapply(outputs, function(x) {
         base_width = 7
     )
 })
+
+
+#####################################
+## Supplementary figure: efficacy by stop reason
+#####################################
+
+lazyLoad(smart_load_name(dir, "efficacy_meta_stop_by_datatype_granular"))
+
+theme_set(theme_cowplot(font_size = 9))
+
+p_meta_stop_by_dt_granular
+
+outputs <- c(
+    "./docs/figures/efficacy_byStopReason.png",
+    "./docs/figures/efficacy_byStopReason.pdf"
+)
+
+lapply(outputs, function(x) {
+    save_plot(
+        filename = x,
+        plot = p_meta_stop_by_dt_granular,
+        scale = 0.95,
+        ncol = 1,
+        nrow = 1,
+        base_height = 11,
+        base_width = 8
+    )
+})
+
+#####################################
+## Supplementary figure: efficacy by datatource
+#####################################
+
+lazyLoad(smart_load_name(dir, "efficacy_meta_by_genetic_ds"))
+
+theme_set(theme_cowplot(font_size = 9))
+
+p_efficacy_meta_by_genetic_ds
+
+outputs <- c(
+    "./docs/figures/efficacy_byGeneticDatasource.png",
+    "./docs/figures/efficacy_byGeneticDatasource.pdf"
+)
+
+lapply(outputs, function(x) {
+    save_plot(
+        filename = x,
+        plot = p_efficacy_meta_by_genetic_ds,
+        scale = 0.95,
+        ncol = 1,
+        nrow = 1,
+        base_height = 8,
+        base_width = 12
+    )
+})

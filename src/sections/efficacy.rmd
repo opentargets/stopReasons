@@ -259,8 +259,11 @@ p_meta_stop_by_datatype <- all_tests %>%
     filter(predictionType %in% c("metareason", "clinical", "stopStatus")) %>%
     filter(comparison %in% c("animal_model", "genetic_association")) %>%
     filter(comparisonType == "byDatatype") %>%
-    mutate(predictionType = fct_relevel(predictionType,
-    "clinical", "stopStatus", "metareason")) %>%
+    mutate(predictionType = fct_relevel(
+        predictionType,
+        "clinical",
+        "stopStatus",
+        "metareason")) %>%
     mutate(prediction = fct_reorder(prediction, estimate, median)) %>%
     mutate(comparison = fct_rev(comparison)) %>%
     ggplot(aes(x = prediction, y = estimate)) +
@@ -290,14 +293,38 @@ p_meta_stop_by_datatype
 
 ### More granular stop reasons by datatype
 
-```{r, efficacy_meta_stop_by_datatype_granular}
+```{r, efficacy_meta_stop_by_datatype_granular, cache = TRUE}
 p_meta_stop_by_dt_granular <- all_tests %>%
     filter(predictionType %in% c("reason", "clinical", "stopStatus")) %>%
     filter(comparison %in% c("animal_model", "genetic_association")) %>%
     filter(comparisonType == "byDatatype") %>%
-    mutate(predictionType = fct_relevel(predictionType,
-    "clinical", "stopStatus", "reason")) %>%
+    mutate(predictionType = fct_relevel(
+        predictionType,
+        "clinical",
+        "stopStatus",
+        "reason"
+    )) %>%
+    mutate(predictionType = fct_recode(
+        predictionType,
+        "All studies" = "clinical",
+        "Stopped studies" = "stopStatus",
+        "Reason" = "reason"
+    )) %>%
+    mutate(prediction = str_replace_all(prediction, "_", " ")) %>%
+    mutate(prediction = str_to_sentence(prediction)) %>%
+    mutate(prediction = fct_recode(
+        prediction,
+        "Phase IV" = "Phase iv",
+        "Phase III+" = "Phase iii+",
+        "Phase II+" = "Phase ii+"
+    )) %>%
     mutate(prediction = fct_reorder(prediction, estimate, median)) %>%
+    mutate(prediction = fct_relevel(prediction, "Phase IV", after = Inf)) %>%
+    mutate(comparison = fct_recode(
+        comparison,
+        "Genetic association" = "genetic_association",
+        "Mouse KO" = "animal_model"
+    )) %>%
     mutate(comparison = fct_rev(comparison)) %>%
     ggplot(aes(x = prediction, y = estimate)) +
     geom_hline(aes(yintercept = 1),
@@ -307,7 +334,7 @@ p_meta_stop_by_dt_granular <- all_tests %>%
     geom_errorbar(aes(ymin = conf.low, ymax = conf.high),
     width = 0) +
     geom_point() +
-    scale_y_log10(name = "Odds Ratio (log)") +
+    scale_y_log10(name = "Odds Ratio") +
     coord_flip() +
     facet_grid(
         predictionType ~ comparison,
@@ -328,7 +355,7 @@ p_meta_stop_by_dt_granular
 
 ### Stop reasons (meta) by genetic datasource
 
-```{r, efficacy_meta_by_genetic_ds}
+```{r, efficacy_meta_by_genetic_ds, cache = TRUE}
 genetic_ds <- c(
     "clingen",
     "eva",
@@ -343,10 +370,51 @@ p_efficacy_meta_by_genetic_ds <- all_tests %>%
     filter(predictionType %in% c("metareason", "clinical", "stopStatus")) %>%
     filter(comparison %in% genetic_ds) %>%
     filter(comparisonType == "byDatasource") %>%
-    mutate(predictionType = fct_relevel(predictionType,
-    "clinical", "stopStatus", "metareason")) %>%
+    mutate(predictionType = fct_relevel(
+        predictionType,
+        "clinical", "stopStatus", "metareason"
+    )) %>%
+    mutate(predictionType = fct_recode(
+        predictionType,
+        "All studies" = "clinical",
+        "Stopped studies" = "stopStatus",
+        "Reason implication" = "metareason"
+    )) %>%
+    mutate(prediction = fct_recode(prediction,
+        "Suspicious" = "Business_Administrative",
+        "Invalid" = "Invalid_Reason",
+        "Safety" = "Safety_Sideeffects",
+        "Negative" = "Negative",
+        "Neutral" = "Neutral"
+        # "Success" = "Success"
+    )) %>%
+    # mutate(prediction = str_replace_all(prediction, "_", " ")) %>%
+    # mutate(prediction = str_to_sentence(prediction)) %>%
+    # mutate(prediction = fct_recode(
+    #     prediction,
+    #     "Phase IV" = "Phase iv",
+    #     "Phase III+" = "Phase iii+",
+    #     "Phase II+" = "Phase ii+"
+    # )) %>%
     mutate(prediction = fct_reorder(prediction, estimate, median)) %>%
-    # mutate(comparison = fct_rev(comparison)) %>%
+    mutate(prediction = fct_relevel(prediction, "Phase IV", after = Inf)) %>%
+    mutate(comparison = fct_relevel(
+        comparison,
+        "ot_genetics_portal",
+        "eva",
+        "genomics_england",
+        "clingen",
+        "uniprot_variants",
+        "uniprot_literature")) %>%
+    mutate(comparison = fct_recode(
+        comparison,
+        "ClinVar" = "eva",
+        "Clingen (Gene validity)" = "clingen",
+        "GEL PanelApp" = "genomics_england",
+        "OT Genetics Portal" = "ot_genetics_portal",
+        "Uniprot (variants)" = "uniprot_literature",
+        "Uniprot (gene-disease)" = "uniprot_variants"
+    )) %>%
     ggplot(aes(x = prediction, y = estimate)) +
     geom_hline(aes(yintercept = 1),
         size = .25,
@@ -355,7 +423,7 @@ p_efficacy_meta_by_genetic_ds <- all_tests %>%
     geom_errorbar(aes(ymin = conf.low, ymax = conf.high),
     width = 0) +
     geom_point() +
-    scale_y_log10(name = "Odds Ratio (log)") +
+    scale_y_log10(name = "Odds Ratio") +
     coord_flip() +
     facet_grid(
         predictionType ~ comparison,
