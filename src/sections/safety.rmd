@@ -207,7 +207,6 @@ p_safety_by_cancer_datasource <- all_tests %>%
         "Safety" = "Safety_Sideeffects",
         "Negative" = "Negative",
         "Neutral" = "Neutral"
-        # "Success" = "Success"
     )) %>%
     mutate(prediction = fct_reorder(prediction, estimate, median)) %>%
     mutate(prediction = fct_relevel(prediction, "Phase III+", after = Inf)) %>%

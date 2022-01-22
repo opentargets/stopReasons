@@ -386,16 +386,7 @@ p_efficacy_meta_by_genetic_ds <- all_tests %>%
         "Safety" = "Safety_Sideeffects",
         "Negative" = "Negative",
         "Neutral" = "Neutral"
-        # "Success" = "Success"
     )) %>%
-    # mutate(prediction = str_replace_all(prediction, "_", " ")) %>%
-    # mutate(prediction = str_to_sentence(prediction)) %>%
-    # mutate(prediction = fct_recode(
-    #     prediction,
-    #     "Phase IV" = "Phase iv",
-    #     "Phase III+" = "Phase iii+",
-    #     "Phase II+" = "Phase ii+"
-    # )) %>%
     mutate(prediction = fct_reorder(prediction, estimate, median)) %>%
     mutate(prediction = fct_relevel(prediction, "Phase IV", after = Inf)) %>%
     mutate(comparison = fct_relevel(
@@ -463,7 +454,7 @@ p_efficacy_gwas_l2g_score <- all_tests %>%
     width = 0) +
     geom_point() +
     scale_color_discrete(name = "Clinical Studies") +
-    scale_y_log10(name = "Odds Ratio") +    
+    scale_y_log10(name = "Odds Ratio") +
     scale_x_discrete(name = "GWAS predicted causality (max L2G score)") +
     theme_cowplot(font_size = 12) +
     panel_border(color = "black") +

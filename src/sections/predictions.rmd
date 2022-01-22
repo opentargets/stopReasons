@@ -523,5 +523,4 @@ p_predictions_stopped_by_ta <- stop_by_ta %>%
         axis.text.x = element_text(hjust = 1, angle = 45)
     )
 p_predictions_stopped_by_ta
-
 ```
