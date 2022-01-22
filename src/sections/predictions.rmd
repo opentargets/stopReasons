@@ -349,7 +349,7 @@ p_predictions_by_phase
 
 ### Predicted stop reason by therapy area
 
-```{r, predictions_by_therapy_summary}
+```{r, predictions_by_therapy_summary, cache = TRUE}
 byta_prepdata <- data_to_plot %>%
         mutate(taTerm = replace_na(taTerm, "Other")) %>%
         mutate(taTerm = str_replace_all(taTerm, " disease", "")) %>%

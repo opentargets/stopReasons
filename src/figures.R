@@ -21,10 +21,28 @@ scientific_10 <- function(x) {
 ######################
 
 lazyLoad(smart_load_name(dir, "predictions_by_date"))
+lazyLoad(smart_load_name(dir, "predictions_by_phase"))
+lazyLoad(smart_load_name(dir, "predictions_by_therapy_summary"))
 
 theme_set(theme_cowplot(font_size = 9))
 
-p_supertile
+p_predictions <- plot_grid(
+     p_supertile,
+     plot_grid(
+         p_predictions_by_phase,
+         p_byta_highlights,
+         NULL,
+         align = "v",
+         rel_widths = c(0.425, 0.425, 0.15),
+         labels = c("b", "c"),
+         nrow = 1),
+     nrow = 2,
+     scale = 0.98,
+     align = "v",
+     axis = "r",
+     rel_heights = c(1, 0.7),
+     labels = c("a", NULL)
+ )
 
 outputs <- c(
     "./docs/figures/figurePredictions.png",
@@ -34,7 +52,7 @@ outputs <- c(
 lapply(outputs, function(x) {
     save_plot(
         filename = x,
-        plot = p_supertile,
+        plot = p_predictions,
         scale = 0.95,
         ncol = 1,
         nrow = 1,
